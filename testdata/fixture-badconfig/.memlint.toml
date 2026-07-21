@@ -1,0 +1,7 @@
+# Every key here is wrong on purpose. memlint must reject this file and exit 2
+# before running a single rule, rather than silently ignoring what it cannot
+# understand and reporting the repository clean.
+
+[junk]
+globs = ["*.tmp"]
+recursive = true   # no such field

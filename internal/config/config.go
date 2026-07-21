@@ -1,0 +1,272 @@
+// Package config loads and validates .memlint.toml.
+//
+// Section presence is the enable switch: a rule runs only if its section is
+// present in the file. A nil section pointer means "disabled", which is why
+// every section is a pointer type.
+package config
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/BurntSushi/toml"
+)
+
+// FileName is the config file memlint looks for at the target root.
+const FileName = ".memlint.toml"
+
+// Config mirrors the .memlint.toml schema. Every field is a pointer so that
+// an absent section is distinguishable from an empty one.
+type Config struct {
+	Mirrors    *Mirrors    `toml:"mirrors"`
+	AppendOnly *AppendOnly `toml:"append_only"`
+	Pointers   *Pointers   `toml:"pointers"`
+	Junk       *Junk       `toml:"junk"`
+	Tokens     *Tokens     `toml:"tokens"`
+}
+
+// Mirrors requires the two sides of each pair to stay byte-identical.
+type Mirrors struct {
+	Pairs [][]string `toml:"pairs"`
+}
+
+// AppendOnly requires each file to still begin with its HEAD baseline.
+type AppendOnly struct {
+	Files []string `toml:"files"`
+}
+
+// Pointers checks repo-path-like references found in Files, but only when the
+// reference's first path segment appears in Roots.
+type Pointers struct {
+	Files []string `toml:"files"`
+	Roots []string `toml:"roots"`
+}
+
+// Junk reports files and directories matching any of Globs.
+type Junk struct {
+	Globs []string `toml:"globs"`
+}
+
+// Tokens reports watched files whose estimated token count exceeds Budget.
+type Tokens struct {
+	Watch  []string `toml:"watch"`
+	Budget int      `toml:"budget"`
+}
+
+// RuleCount reports how many rules are enabled. Zero is valid: every rule is
+// simply disabled, and the run reports clean without claiming to have verified
+// anything.
+func (c *Config) RuleCount() int {
+	n := 0
+	for _, enabled := range []bool{
+		c.Mirrors != nil, c.AppendOnly != nil, c.Pointers != nil,
+		c.Junk != nil, c.Tokens != nil,
+	} {
+		if enabled {
+			n++
+		}
+	}
+	return n
+}
+
+// Load reads and validates <root>/.memlint.toml. Every error it returns is a
+// startup error: the caller must exit 2 without running any rule.
+func Load(root string) (*Config, error) {
+	path := filepath.Join(root, FileName)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("no %s found at %s", FileName, root)
+		}
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	var cfg Config
+	md, err := toml.Decode(string(data), &cfg)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", FileName, err)
+	}
+	if undecoded := md.Undecoded(); len(undecoded) > 0 {
+		keys := make([]string, 0, len(undecoded))
+		for _, k := range undecoded {
+			keys = append(keys, k.String())
+		}
+		sort.Strings(keys)
+		return nil, fmt.Errorf("%s: unknown key(s): %s", FileName, strings.Join(keys, ", "))
+	}
+
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", FileName, err)
+	}
+	return &cfg, nil
+}
+
+func (c *Config) validate() error {
+	if c.Mirrors != nil {
+		if err := c.Mirrors.validate(); err != nil {
+			return fmt.Errorf("[mirrors]: %w", err)
+		}
+	}
+	if c.AppendOnly != nil {
+		if err := c.AppendOnly.validate(); err != nil {
+			return fmt.Errorf("[append_only]: %w", err)
+		}
+	}
+	if c.Pointers != nil {
+		if err := c.Pointers.validate(); err != nil {
+			return fmt.Errorf("[pointers]: %w", err)
+		}
+	}
+	if c.Junk != nil {
+		if err := c.Junk.validate(); err != nil {
+			return fmt.Errorf("[junk]: %w", err)
+		}
+	}
+	if c.Tokens != nil {
+		if err := c.Tokens.validate(); err != nil {
+			return fmt.Errorf("[tokens]: %w", err)
+		}
+	}
+	return nil
+}
+
+func (m *Mirrors) validate() error {
+	if len(m.Pairs) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set pairs")
+	}
+	seen := map[string]bool{}
+	for i, pair := range m.Pairs {
+		if len(pair) != 2 {
+			return fmt.Errorf("pairs[%d]: expected exactly 2 paths, got %d", i, len(pair))
+		}
+		for j, p := range pair {
+			if err := validRelPath(p); err != nil {
+				return fmt.Errorf("pairs[%d][%d]: %w", i, j, err)
+			}
+		}
+		a, b := CleanRel(pair[0]), CleanRel(pair[1])
+		if a == b {
+			return fmt.Errorf("pairs[%d]: both sides resolve to the same path %q", i, a)
+		}
+		// [a,b] and [b,a] describe the same check.
+		key := a + "\x00" + b
+		if a > b {
+			key = b + "\x00" + a
+		}
+		if seen[key] {
+			return fmt.Errorf("pairs[%d]: duplicate pair %q / %q", i, a, b)
+		}
+		seen[key] = true
+	}
+	return nil
+}
+
+func (a *AppendOnly) validate() error {
+	if len(a.Files) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files")
+	}
+	return validRelPathList("files", a.Files)
+}
+
+func (p *Pointers) validate() error {
+	if len(p.Files) == 0 || len(p.Roots) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files and roots")
+	}
+	if err := validRelPathList("files", p.Files); err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for i, r := range p.Roots {
+		switch {
+		case r == "":
+			return fmt.Errorf("roots[%d]: must not be empty", i)
+		case filepath.IsAbs(r):
+			return fmt.Errorf("roots[%d]: must not be absolute: %q", i, r)
+		case strings.ContainsAny(r, `/\`):
+			return fmt.Errorf("roots[%d]: must be a single path segment, got %q", i, r)
+		case r == "." || r == "..":
+			return fmt.Errorf("roots[%d]: invalid segment %q", i, r)
+		case seen[r]:
+			return fmt.Errorf("roots[%d]: duplicate root %q", i, r)
+		}
+		seen[r] = true
+	}
+	return nil
+}
+
+func (j *Junk) validate() error {
+	if len(j.Globs) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set globs")
+	}
+	return validGlobList("globs", j.Globs)
+}
+
+func (t *Tokens) validate() error {
+	if len(t.Watch) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set watch")
+	}
+	if err := validGlobList("watch", t.Watch); err != nil {
+		return err
+	}
+	if t.Budget <= 0 {
+		return fmt.Errorf("budget: must be a positive number of tokens, got %d", t.Budget)
+	}
+	return nil
+}
+
+func validRelPathList(field string, paths []string) error {
+	seen := map[string]bool{}
+	for i, p := range paths {
+		if err := validRelPath(p); err != nil {
+			return fmt.Errorf("%s[%d]: %w", field, i, err)
+		}
+		c := CleanRel(p)
+		if seen[c] {
+			return fmt.Errorf("%s[%d]: duplicate path %q", field, i, c)
+		}
+		seen[c] = true
+	}
+	return nil
+}
+
+// validRelPath rejects anything that could point outside the target root.
+func validRelPath(p string) error {
+	switch {
+	case p == "":
+		return fmt.Errorf("must not be empty")
+	case filepath.IsAbs(p) || strings.HasPrefix(p, "/"):
+		return fmt.Errorf("must be relative to the repository root, got %q", p)
+	}
+	c := CleanRel(p)
+	if c == ".." || strings.HasPrefix(c, "../") || c == "." {
+		return fmt.Errorf("must not escape the repository root, got %q", p)
+	}
+	return nil
+}
+
+func validGlobList(field string, globs []string) error {
+	seen := map[string]bool{}
+	for i, g := range globs {
+		switch {
+		case g == "":
+			return fmt.Errorf("%s[%d]: must not be empty", field, i)
+		case strings.Contains(g, "**"):
+			return fmt.Errorf("%s[%d]: recursive ** globs are not supported in v0.1: %q", field, i, g)
+		case seen[g]:
+			return fmt.Errorf("%s[%d]: duplicate glob %q", field, i, g)
+		}
+		if _, err := filepath.Match(g, "probe"); err != nil {
+			return fmt.Errorf("%s[%d]: invalid glob %q: %w", field, i, g, err)
+		}
+		seen[g] = true
+	}
+	return nil
+}
+
+// CleanRel normalizes a configured path to slash-separated, cleaned form.
+func CleanRel(p string) string {
+	return filepath.ToSlash(filepath.Clean(filepath.FromSlash(p)))
+}

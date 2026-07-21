@@ -1,0 +1,23 @@
+# Fixture with five planted RED defects and two planted YELLOW defects.
+# See README.md in this directory for the inventory.
+#
+# [append_only] is deliberately absent: a committed fixture file always equals
+# its own HEAD blob, so a static fixture cannot express a violation. That rule
+# is covered by internal/lint/appendonly_test.go, which builds real git repos.
+
+[mirrors]
+pairs = [
+  ["CLAUDE.md", "docs/CLAUDE.md"],
+  ["sync/left", "sync/right"],
+]
+
+[pointers]
+files = ["memory/index.md"]
+roots = ["memory", "docs"]
+
+[junk]
+globs = ["*.tmp"]
+
+[tokens]
+watch = ["memory/*.md"]
+budget = 200

@@ -1,0 +1,9 @@
+# A repository with advisory findings only: two YELLOW, no RED.
+# memlint exits 0 here normally and 1 under --strict.
+
+[junk]
+globs = ["*.tmp"]
+
+[tokens]
+watch = ["memory/*.md"]
+budget = 20

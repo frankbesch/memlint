@@ -1,0 +1,16 @@
+# memlint checking itself.
+#
+# Only rules that genuinely apply to this repository are enabled. There are no
+# placeholder sections here just to light up all five rules: an invariant nobody
+# actually depends on is noise, and noise is how a checker gets ignored.
+#
+# Note that *.tmp is deliberately absent from [junk]. testdata/fixture-broken
+# contains a planted scratch.tmp, and flagging a fixture's intentional defect
+# would make this repo's own output permanently yellow for no reason.
+
+[pointers]
+files = ["README.md"]
+roots = ["internal", "testdata"]
+
+[junk]
+globs = [".DS_Store"]

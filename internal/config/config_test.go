@@ -1,0 +1,183 @@
+package config
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// withConfig writes a .memlint.toml into a fresh directory and loads it.
+func withConfig(t *testing.T, body string) (*Config, error) {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, FileName), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return Load(dir)
+}
+
+func TestLoadMissingFile(t *testing.T) {
+	_, err := Load(t.TempDir())
+	if err == nil {
+		t.Fatal("a missing config must be an error, not an empty config")
+	}
+	if !strings.Contains(err.Error(), FileName) {
+		t.Errorf("error should name the file it looked for: %v", err)
+	}
+}
+
+// An empty config is valid and disables everything. It is not an error: the
+// caller reports that no rules ran, which keeps "clean" from implying
+// "verified" without inventing a failure.
+func TestLoadEmptyConfigIsValid(t *testing.T) {
+	cfg, err := withConfig(t, "# nothing enabled\n")
+	if err != nil {
+		t.Fatalf("empty config should load: %v", err)
+	}
+	if got := cfg.RuleCount(); got != 0 {
+		t.Errorf("got %d rules, want 0", got)
+	}
+}
+
+func TestSectionPresenceEnablesRules(t *testing.T) {
+	cfg, err := withConfig(t, `
+[junk]
+globs = ["*.tmp"]
+
+[tokens]
+watch = ["memory/*.md"]
+budget = 100
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Mirrors != nil || cfg.AppendOnly != nil || cfg.Pointers != nil {
+		t.Error("absent sections must stay nil")
+	}
+	if cfg.Junk == nil || cfg.Tokens == nil {
+		t.Error("present sections must be non-nil")
+	}
+	if got := cfg.RuleCount(); got != 2 {
+		t.Errorf("got %d rules, want 2", got)
+	}
+}
+
+// Every case here must be rejected before a single rule runs. Silently ignoring
+// a key memlint does not understand would let a repository look verified when
+// the check its author wrote was never executed.
+func TestLoadRejects(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"malformed toml", "[junk\nglobs = []", "expected"},
+		{"unknown section", "[mirror]\npairs = []", "unknown key"},
+		{"unknown field", "[junk]\nglobs = [\"*.tmp\"]\nrecursive = true", "unknown key"},
+
+		{"empty mirrors", "[mirrors]\n", "present but empty"},
+		{"empty append_only", "[append_only]\n", "present but empty"},
+		{"empty junk", "[junk]\n", "present but empty"},
+		{"empty tokens", "[tokens]\nbudget = 10", "present but empty"},
+		{"pointers without roots", "[pointers]\nfiles = [\"a.md\"]", "present but empty"},
+
+		{"mirror pair too short", `[mirrors]
+pairs = [["a.md"]]`, "exactly 2 paths"},
+		{"mirror pair too long", `[mirrors]
+pairs = [["a.md", "b.md", "c.md"]]`, "exactly 2 paths"},
+		{"mirror pair with identical sides", `[mirrors]
+pairs = [["a.md", "./a.md"]]`, "same path"},
+		{"duplicate mirror pair regardless of order", `[mirrors]
+pairs = [["a.md", "b.md"], ["b.md", "a.md"]]`, "duplicate pair"},
+
+		{"zero budget", `[tokens]
+watch = ["a.md"]
+budget = 0`, "positive"},
+		{"negative budget", `[tokens]
+watch = ["a.md"]
+budget = -1`, "positive"},
+
+		{"invalid glob", `[junk]
+globs = ["[unclosed"]`, "invalid glob"},
+		{"recursive glob", `[junk]
+globs = ["**/*.tmp"]`, "not supported"},
+		{"duplicate glob", `[junk]
+globs = ["*.tmp", "*.tmp"]`, "duplicate glob"},
+
+		{"absolute path", `[append_only]
+files = ["/etc/passwd"]`, "must be relative"},
+		{"parent traversal", `[append_only]
+files = ["../outside.md"]`, "must not escape"},
+		{"duplicate file", `[append_only]
+files = ["a.md", "./a.md"]`, "duplicate path"},
+
+		{"empty root", `[pointers]
+files = ["a.md"]
+roots = [""]`, "must not be empty"},
+		{"absolute root", `[pointers]
+files = ["a.md"]
+roots = ["/memory"]`, "must not be absolute"},
+		{"multi-segment root", `[pointers]
+files = ["a.md"]
+roots = ["memory/notes"]`, "single path segment"},
+		{"duplicate root", `[pointers]
+files = ["a.md"]
+roots = ["memory", "memory"]`, "duplicate root"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := withConfig(t, tt.body)
+			if err == nil {
+				t.Fatalf("expected rejection, got a valid config")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("error %q should mention %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadAcceptsAFullConfig(t *testing.T) {
+	cfg, err := withConfig(t, `
+[mirrors]
+pairs = [["CLAUDE.md", "docs/CLAUDE.md"], ["sync/left", "sync/right"]]
+
+[append_only]
+files = ["memory/decisions.md"]
+
+[pointers]
+files = ["memory/index.md"]
+roots = ["memory", "docs"]
+
+[junk]
+globs = ["*.tmp", ".DS_Store"]
+
+[tokens]
+watch = ["memory/*.md"]
+budget = 2000
+`)
+	if err != nil {
+		t.Fatalf("valid config rejected: %v", err)
+	}
+	if got := cfg.RuleCount(); got != 5 {
+		t.Errorf("got %d rules, want 5", got)
+	}
+}
+
+func TestCleanRel(t *testing.T) {
+	cases := map[string]string{
+		"a.md":        "a.md",
+		"./a.md":      "a.md",
+		"a//b.md":     "a/b.md",
+		"a/./b.md":    "a/b.md",
+		"a/c/../b.md": "a/b.md",
+		"a/":          "a",
+	}
+	for in, want := range cases {
+		if got := CleanRel(in); got != want {
+			t.Errorf("CleanRel(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

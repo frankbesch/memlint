@@ -1,0 +1,19 @@
+# A repository whose invariants all hold. memlint must exit 0 here with one
+# green line and no findings.
+
+[mirrors]
+pairs = [
+  ["CLAUDE.md", "docs/CLAUDE.md"],
+  ["sync/left", "sync/right"],
+]
+
+[pointers]
+files = ["memory/index.md"]
+roots = ["memory", "docs"]
+
+[junk]
+globs = ["*.tmp", ".DS_Store"]
+
+[tokens]
+watch = ["memory/*.md"]
+budget = 200
