@@ -33,6 +33,12 @@ func Run(root string, cfg *config.Config) Result {
 	if cfg.AppendOnly != nil {
 		checkAppendOnly(r, cfg.AppendOnly)
 	}
+	if cfg.Blocks != nil {
+		checkBlocks(r, cfg.Blocks)
+	}
+	if cfg.HumanBrief != nil {
+		checkHumanBrief(r, cfg.HumanBrief)
+	}
 	if cfg.Pointers != nil {
 		checkPointers(r, cfg.Pointers)
 	}

@@ -23,14 +23,16 @@ func runFixture(t *testing.T, name string) Result {
 	return Run(root, cfg)
 }
 
-// The acceptance criterion: fixture-broken has exactly five planted RED defects
-// and two planted YELLOW ones. The count is the test -- if a rule starts
-// over-reporting or silently stops reporting, this fails.
+// The acceptance criterion: fixture-broken has exactly seven planted RED
+// defects and two planted YELLOW ones. The count is the test -- if a rule
+// starts over-reporting or silently stops reporting, this fails.
 func TestFixtureBroken(t *testing.T) {
 	res := runFixture(t, "fixture-broken")
-	wantCounts(t, res, 5, 2)
+	wantCounts(t, res, 7, 2)
 
 	want := []struct{ rule, path, message string }{
+		{"blocks", "AGENTS.md", "unterminated"},
+		{"blocks", "docs/generated.md", "duplicate start marker"},
 		{"mirrors", "CLAUDE.md", "mirrored files differ"},
 		{"mirrors", "sync/left/a.md", "mirrored files differ"},
 		{"mirrors", "sync/left/b.md", "missing from sync/right"},

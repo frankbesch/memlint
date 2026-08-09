@@ -1,15 +1,23 @@
-# Fixture with five planted RED defects and two planted YELLOW defects.
+# Fixture with seven planted RED defects and two planted YELLOW defects.
 # See README.md in this directory for the inventory.
 #
 # [append_only] is deliberately absent: a committed fixture file always equals
 # its own HEAD blob, so a static fixture cannot express a violation. That rule
 # is covered by internal/lint/appendonly_test.go, which builds real git repos.
+# [human_brief] is absent for the same reason: fixture files are committed by
+# this repository's human author, so a static fixture cannot express an
+# agent-authored commit. Covered by internal/lint/humanbrief_test.go.
 
 [mirrors]
 pairs = [
   ["CLAUDE.md", "docs/CLAUDE.md"],
   ["sync/left", "sync/right"],
 ]
+
+[blocks]
+files = ["AGENTS.md", "docs/generated.md"]
+start = "<!-- AGENT:START -->"
+end = "<!-- AGENT:END -->"
 
 [pointers]
 files = ["memory/index.md"]

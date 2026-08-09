@@ -5,7 +5,9 @@ An invariant checker for file-based agent memory.
 Think `fsck`, not ESLint. AI runtimes like Claude Code and Codex read repos of
 markdown as persistent memory and contracts. Those repos drift silently: a
 mirrored `CLAUDE.md` gets edited on one side only, an append-only decision log
-gets quietly rewritten, a pointer to a note goes dead after a rename. Nothing
+gets quietly rewritten, a pointer to a note goes dead after a rename, an
+agent's ownership block loses its end marker and the next run rewrites the
+wrong span. Nothing
 fails. The agent just starts working from something that is no longer true.
 
 memlint checks the invariants you declare and reports the ones that broke.
@@ -30,25 +32,29 @@ rules declared there, and writes findings to stdout.
 Real output, from `memlint check --no-color testdata/fixture-broken`:
 
 ```text
-mirrors   RED     CLAUDE.md          mirrored files differ at byte 115 (line 4, col 19)
+blocks    RED     AGENTS.md:3          ownership block unterminated: start marker has no end marker
+    expected "<!-- AGENT:END -->" after it
+blocks    RED     docs/generated.md:7  ownership block malformed: duplicate start marker
+    first start marker is on line 3
+mirrors   RED     CLAUDE.md            mirrored files differ at byte 115 (line 4, col 19)
     counterpart: docs/CLAUDE.md
     CLAUDE.md is 261 bytes, docs/CLAUDE.md is 258 bytes
-mirrors   RED     sync/left/a.md     mirrored files differ at byte 90 (line 4, col 11)
+mirrors   RED     sync/left/a.md       mirrored files differ at byte 90 (line 4, col 11)
     counterpart: sync/right/a.md
     sync/left/a.md is 115 bytes, sync/right/a.md is 116 bytes
-mirrors   RED     sync/left/b.md     present in sync/left but missing from sync/right
+mirrors   RED     sync/left/b.md       present in sync/left but missing from sync/right
     counterpart: sync/right/b.md
-pointers  RED     memory/index.md:7  dead reference: memory/missing.md does not exist
-pointers  RED     memory/index.md:8  dead reference: docs/nope.md does not exist
-junk      YELLOW  notes/scratch.tmp  junk file matches "*.tmp"
-tokens    YELLOW  memory/big.md      420 estimated tokens exceeds budget of 200
-memlint: 5 red, 2 yellow
+pointers  RED     memory/index.md:7    dead reference: memory/missing.md does not exist
+pointers  RED     memory/index.md:8    dead reference: docs/nope.md does not exist
+junk      YELLOW  notes/scratch.tmp    junk file matches "*.tmp"
+tokens    YELLOW  memory/big.md        420 estimated tokens exceeds budget of 200
+memlint: 7 red, 2 yellow
 ```
 
 A clean repository prints one line:
 
 ```text
-memlint: clean (4 rules, 7 files checked)
+memlint: clean (5 rules, 8 files checked)
 ```
 
 ### Flags
@@ -93,6 +99,15 @@ pairs = [
 
 [append_only]
 files = ["memory/decisions.md"]
+
+[blocks]
+files = ["CLAUDE.md", "AGENTS.md"]
+start = "<!-- AGENT:START -->"
+end = "<!-- AGENT:END -->"
+
+[human_brief]
+files = ["INSTRUCTIONS.md"]
+agent_authors = ["openwiki[bot]", "claude"]
 
 [pointers]
 files = ["memory/index.md"]
@@ -147,6 +162,54 @@ be deleted.
 No baseline is **YELLOW**, not RED: an untracked file, a directory that is not a
 git repository, a repository with no commits, or a missing `git` binary all mean
 the invariant could not be established, not that it was violated.
+
+### `[blocks]` — ownership blocks that must stay well-formed · RED
+
+Each listed file must contain exactly one well-formed ownership block: one
+`start` marker, then one `end` marker. This is the structural half of the
+agent-cohabitation convention (an agent that shares a file with humans rewrites
+only its own delimited region): whether the agent *stayed inside* its block is
+an authorship question the working tree cannot answer, but whether the block it
+will rewrite next run is still unambiguous is exactly checkable. A half-deleted
+marker means the next run rewrites the wrong span.
+
+Markers are literal single-line strings, matched anywhere in a line, so
+indentation or a block opened and closed on the same line both work. Violations
+— no markers, end without start, unterminated, duplicate start, duplicate end,
+end before start — are RED, **one finding per file**: the first structural
+problem is the one a repair has to address before the later ones are
+meaningful. A listed file that does not exist is also RED, since the config
+declares it carries a block.
+
+The config rejects empty, identical, or multiline markers, and markers that
+contain each other, which would make every occurrence of the longer marker also
+count as the shorter one.
+
+### `[human_brief]` — files agents must never write · RED
+
+The human brief is the file an agent reads for scope and priorities but never
+writes — intent and output on opposite sides of a hard line. This rule verifies
+that line held: the **full git history** of each listed file must contain no
+commit whose author name or email equals (case-insensitively, but exactly —
+`claude` does not match `claude reviewer`) one of the configured
+`agent_authors`. A violation is RED, reported once per file, naming the most
+recent offending commit plus a count of earlier ones.
+
+**Scope, precisely — and deliberately different from `[append_only]`:** that
+rule compares only HEAD against the working tree, and a committed rewrite goes
+quiet. This rule scans all of history, and that is not scope creep: authorship
+is simply not readable from the working tree — a file's bytes do not say who
+wrote them — so history is the only place this invariant lives. It also means
+an agent-authored commit stays visible after later human commits land on top;
+see [internal/lint/humanbrief_test.go](internal/lint/humanbrief_test.go), which
+tests both properties explicitly.
+
+What this rule requires of your setup: agents must commit under identities
+distinguishable from yours (a bot name or bot email). If your agent commits as
+you, the check is vacuously green. Renames are not followed; history before a
+rename belongs to the old path. No git repository, no commits, or a file no
+commit touches is **YELLOW**, mirroring `[append_only]`: the invariant could
+not be established, not violated.
 
 ### `[pointers]` — references that must resolve · RED
 
@@ -245,12 +308,12 @@ asked to perform and still reports clean is worse than one that fails loudly.
 ```bash
 go test ./...
 go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 5 red, 2 yellow, exit 1
+./memlint check --no-color testdata/fixture-broken   # 7 red, 2 yellow, exit 1
 ./memlint check --no-color testdata/fixture-clean    # clean, exit 0
 ./memlint check --no-color testdata/fixture-yellow   # yellow only, exit 0
 ```
 
-[testdata/fixture-broken](testdata/fixture-broken) carries five planted RED
+[testdata/fixture-broken](testdata/fixture-broken) carries seven planted RED
 defects and two planted YELLOW ones, plus every reference form that must **not**
 be reported. The counts are the acceptance test: a rule that starts
 over-reporting or quietly stops reporting breaks it.
@@ -268,6 +331,14 @@ the rules that genuinely apply here.
 - **`memlint init`** — generate a starter config from what a repo looks like.
 - **Recursive `**` globs.**
 - **Machine-readable rule docs**, so a finding can link to its own explanation.
+- **Rename-aware `[human_brief]`** — follow a brief across renames instead of
+  treating pre-rename history as a different file.
+
+Considered from the agent-cohabitation contract and **not** adopted: no-op
+commit detection (history hygiene rather than a repo-state invariant, and its
+useful form — "this delta is only timestamp churn" — is a content judgment)
+and repair-marker validation (detecting *unmarked* degraded output means
+validating the output itself, which is semantic linting, a non-goal).
 
 ## Non-goals for v0.1
 

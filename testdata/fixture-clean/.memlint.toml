@@ -7,6 +7,11 @@ pairs = [
   ["sync/left", "sync/right"],
 ]
 
+[blocks]
+files = ["AGENTS.md"]
+start = "<!-- AGENT:START -->"
+end = "<!-- AGENT:END -->"
+
 [pointers]
 files = ["memory/index.md"]
 roots = ["memory", "docs"]

@@ -23,6 +23,8 @@ const FileName = ".memlint.toml"
 type Config struct {
 	Mirrors    *Mirrors    `toml:"mirrors"`
 	AppendOnly *AppendOnly `toml:"append_only"`
+	Blocks     *Blocks     `toml:"blocks"`
+	HumanBrief *HumanBrief `toml:"human_brief"`
 	Pointers   *Pointers   `toml:"pointers"`
 	Junk       *Junk       `toml:"junk"`
 	Tokens     *Tokens     `toml:"tokens"`
@@ -36,6 +38,21 @@ type Mirrors struct {
 // AppendOnly requires each file to still begin with its HEAD baseline.
 type AppendOnly struct {
 	Files []string `toml:"files"`
+}
+
+// Blocks requires each file to contain exactly one well-formed ownership
+// block delimited by the Start and End markers.
+type Blocks struct {
+	Files []string `toml:"files"`
+	Start string   `toml:"start"`
+	End   string   `toml:"end"`
+}
+
+// HumanBrief requires that no commit in a file's git history was authored by
+// one of the configured agent identities.
+type HumanBrief struct {
+	Files        []string `toml:"files"`
+	AgentAuthors []string `toml:"agent_authors"`
 }
 
 // Pointers checks repo-path-like references found in Files, but only when the
@@ -62,7 +79,8 @@ type Tokens struct {
 func (c *Config) RuleCount() int {
 	n := 0
 	for _, enabled := range []bool{
-		c.Mirrors != nil, c.AppendOnly != nil, c.Pointers != nil,
+		c.Mirrors != nil, c.AppendOnly != nil, c.Blocks != nil,
+		c.HumanBrief != nil, c.Pointers != nil,
 		c.Junk != nil, c.Tokens != nil,
 	} {
 		if enabled {
@@ -113,6 +131,16 @@ func (c *Config) validate() error {
 	if c.AppendOnly != nil {
 		if err := c.AppendOnly.validate(); err != nil {
 			return fmt.Errorf("[append_only]: %w", err)
+		}
+	}
+	if c.Blocks != nil {
+		if err := c.Blocks.validate(); err != nil {
+			return fmt.Errorf("[blocks]: %w", err)
+		}
+	}
+	if c.HumanBrief != nil {
+		if err := c.HumanBrief.validate(); err != nil {
+			return fmt.Errorf("[human_brief]: %w", err)
 		}
 	}
 	if c.Pointers != nil {
@@ -169,6 +197,51 @@ func (a *AppendOnly) validate() error {
 		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files")
 	}
 	return validRelPathList("files", a.Files)
+}
+
+func (b *Blocks) validate() error {
+	if len(b.Files) == 0 || b.Start == "" || b.End == "" {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files, start, and end")
+	}
+	if err := validRelPathList("files", b.Files); err != nil {
+		return err
+	}
+	for _, m := range []struct{ key, val string }{{"start", b.Start}, {"end", b.End}} {
+		if strings.ContainsAny(m.val, "\r\n") {
+			return fmt.Errorf("%s: marker must be a single line, got %q", m.key, m.val)
+		}
+	}
+	if b.Start == b.End {
+		return fmt.Errorf("start and end markers must differ, both are %q", b.Start)
+	}
+	// A marker containing the other would make every occurrence of the longer
+	// marker also count as the shorter one, so the scan could never be trusted.
+	if strings.Contains(b.Start, b.End) || strings.Contains(b.End, b.Start) {
+		return fmt.Errorf("markers must not contain each other: %q / %q", b.Start, b.End)
+	}
+	return nil
+}
+
+func (h *HumanBrief) validate() error {
+	if len(h.Files) == 0 || len(h.AgentAuthors) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files and agent_authors")
+	}
+	if err := validRelPathList("files", h.Files); err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for i, a := range h.AgentAuthors {
+		if strings.TrimSpace(a) == "" {
+			return fmt.Errorf("agent_authors[%d]: must not be empty", i)
+		}
+		// Matching is case-insensitive, so duplicates are too.
+		key := strings.ToLower(a)
+		if seen[key] {
+			return fmt.Errorf("agent_authors[%d]: duplicate identity %q", i, a)
+		}
+		seen[key] = true
+	}
+	return nil
 }
 
 func (p *Pointers) validate() error {
@@ -254,7 +327,7 @@ func validGlobList(field string, globs []string) error {
 		case g == "":
 			return fmt.Errorf("%s[%d]: must not be empty", field, i)
 		case strings.Contains(g, "**"):
-			return fmt.Errorf("%s[%d]: recursive ** globs are not supported in v0.1: %q", field, i, g)
+			return fmt.Errorf("%s[%d]: recursive ** globs are not supported yet: %q", field, i, g)
 		case seen[g]:
 			return fmt.Errorf("%s[%d]: duplicate glob %q", field, i, g)
 		}

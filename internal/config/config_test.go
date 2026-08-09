@@ -52,7 +52,8 @@ budget = 100
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Mirrors != nil || cfg.AppendOnly != nil || cfg.Pointers != nil {
+	if cfg.Mirrors != nil || cfg.AppendOnly != nil || cfg.Blocks != nil ||
+		cfg.HumanBrief != nil || cfg.Pointers != nil {
 		t.Error("absent sections must stay nil")
 	}
 	if cfg.Junk == nil || cfg.Tokens == nil {
@@ -112,6 +113,32 @@ files = ["../outside.md"]`, "must not escape"},
 		{"duplicate file", `[append_only]
 files = ["a.md", "./a.md"]`, "duplicate path"},
 
+		{"empty blocks", "[blocks]\n", "present but empty"},
+		{"blocks without markers", `[blocks]
+files = ["AGENTS.md"]`, "present but empty"},
+		{"blocks with identical markers", `[blocks]
+files = ["AGENTS.md"]
+start = "<!-- X -->"
+end = "<!-- X -->"`, "must differ"},
+		{"blocks marker contains the other", `[blocks]
+files = ["AGENTS.md"]
+start = "<!-- AGENT -->"
+end = "<!-- AGENT --> END"`, "must not contain each other"},
+		{"blocks multiline marker", `[blocks]
+files = ["AGENTS.md"]
+start = "<!-- A\nB -->"
+end = "<!-- C -->"`, "single line"},
+
+		{"empty human_brief", "[human_brief]\n", "present but empty"},
+		{"human_brief without authors", `[human_brief]
+files = ["INSTRUCTIONS.md"]`, "present but empty"},
+		{"human_brief empty author", `[human_brief]
+files = ["INSTRUCTIONS.md"]
+agent_authors = [" "]`, "must not be empty"},
+		{"human_brief duplicate author ignoring case", `[human_brief]
+files = ["INSTRUCTIONS.md"]
+agent_authors = ["bot", "Bot"]`, "duplicate identity"},
+
 		{"empty root", `[pointers]
 files = ["a.md"]
 roots = [""]`, "must not be empty"},
@@ -147,6 +174,15 @@ pairs = [["CLAUDE.md", "docs/CLAUDE.md"], ["sync/left", "sync/right"]]
 [append_only]
 files = ["memory/decisions.md"]
 
+[blocks]
+files = ["AGENTS.md"]
+start = "<!-- AGENT:START -->"
+end = "<!-- AGENT:END -->"
+
+[human_brief]
+files = ["INSTRUCTIONS.md"]
+agent_authors = ["openwiki[bot]"]
+
 [pointers]
 files = ["memory/index.md"]
 roots = ["memory", "docs"]
@@ -161,8 +197,8 @@ budget = 2000
 	if err != nil {
 		t.Fatalf("valid config rejected: %v", err)
 	}
-	if got := cfg.RuleCount(); got != 5 {
-		t.Errorf("got %d rules, want 5", got)
+	if got := cfg.RuleCount(); got != 7 {
+		t.Errorf("got %d rules, want 7", got)
 	}
 }
 

@@ -183,11 +183,11 @@ func TestJSONFormat(t *testing.T) {
 	if doc.SchemaVersion != 1 {
 		t.Errorf("got schema_version %d, want 1", doc.SchemaVersion)
 	}
-	if doc.Summary.Red != 5 || doc.Summary.Yellow != 2 {
-		t.Errorf("got %d red / %d yellow, want 5 / 2", doc.Summary.Red, doc.Summary.Yellow)
+	if doc.Summary.Red != 7 || doc.Summary.Yellow != 2 {
+		t.Errorf("got %d red / %d yellow, want 7 / 2", doc.Summary.Red, doc.Summary.Yellow)
 	}
-	if len(doc.Findings) != 7 {
-		t.Errorf("got %d findings, want 7", len(doc.Findings))
+	if len(doc.Findings) != 9 {
+		t.Errorf("got %d findings, want 9", len(doc.Findings))
 	}
 	if strings.Contains(got.stdout, "\033") {
 		t.Error("JSON output must never contain ANSI escapes")

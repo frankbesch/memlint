@@ -43,3 +43,40 @@ Non-goals v0.1 (do not build): autofix, HTML output, subcommands, watch
 mode, semantic/content linting, config generation.
 
 Start in plan mode: plan + file layout before code.
+
+# --- v0.2 addendum: agent-cohabitation rules (approved 2026-08-03) ---
+# Source: promptkits/models/agent-cohabitation-contract.md, distilled from
+# langchain-ai/openwiki. Adopted: ownership-block structure, human-brief
+# authorship. Rejected: no-op commit detection (history hygiene, low
+# value), repair-marker/degraded-output validation (semantic linting,
+# stays a non-goal).
+
+New rules (same contract: read-only, section presence enables):
+6. [blocks] files=[...], start="...", end="..." — each listed file must
+   contain exactly one well-formed ownership block: one start marker,
+   one end marker, start before end. Markers are literal single-line
+   strings matched anywhere in a line. Violations RED, one finding per
+   file (first structural problem wins): no markers, end without start,
+   unterminated, duplicate start, duplicate end, end before start.
+   Listed file missing = RED. Config rejects empty/equal/multiline
+   markers and markers containing each other (ambiguous matching).
+7. [human_brief] files=[...], agent_authors=[...] — the full git history
+   of each listed file must contain no commit whose author name or email
+   equals (case-insensitive, exact) a configured agent identity.
+   Violation RED, once per file, naming the most recent offending commit
+   plus a count of earlier ones. No git / no repo / no commits touching
+   the file = YELLOW, mirroring [append_only]. This is deliberately the
+   first history-scanning rule: authorship is not readable from the
+   working tree, so scanning history IS the invariant, not scope creep.
+   Renames are not followed.
+
+Tests: table-driven block scanner (well-formed, same-line block,
+indented markers, each malformation, missing file); human_brief against
+real temp repos (clean, match by name, by email, case-insensitive,
+multiple agent commits, untracked = yellow, no repo = yellow, root
+inside larger repo, agent edit stays RED after later human commits).
+fixture-broken gains 2 blocks REDs (unterminated AGENTS.md, duplicate
+start docs/generated.md): acceptance becomes 7 red + 2 yellow.
+[human_brief] stays out of the static fixtures for the same reason as
+[append_only]: fixture files are committed by the repo's human author,
+so a hermetic violation cannot be expressed there.
