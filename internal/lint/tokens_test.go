@@ -72,13 +72,48 @@ func TestTokensWatchMatching(t *testing.T) {
 
 	// Unlike the junk rule, watch globs never fall back to basename matching: a
 	// budget names specific files, and matching every nested big.md would widen
-	// it silently.
+	// it silently. The glob therefore matches nothing here — which is itself a
+	// finding, not silence.
 	t.Run("basenames are not matched", func(t *testing.T) {
-		wantCounts(t, runTokens(writeTree(t, tree), 10, "big.md"), 0, 0)
+		res := runTokens(writeTree(t, tree), 10, "big.md")
+		wantCounts(t, res, 0, 1)
+		wantMessage(t, res, "watch glob matched no files")
 	})
 
 	t.Run("overlapping globs produce one finding per file", func(t *testing.T) {
 		root := writeTree(t, map[string]string{"memory/big.md": strings.Repeat("x", 400)})
 		wantCounts(t, runTokens(root, 10, "memory/*.md", "memory/big.md"), 0, 1)
+	})
+}
+
+// A watch glob that matches no file is a budget check that silently never
+// runs. That must be a finding: the config author declared an expectation
+// about files that are not there to be checked.
+func TestTokensZeroMatchGlob(t *testing.T) {
+	t.Run("stale glob warns even when others match", func(t *testing.T) {
+		root := writeTree(t, map[string]string{"memory/a.md": "small"})
+		res := runTokens(root, 10, "memory/*.md", "notes/*.md")
+		wantCounts(t, res, 0, 1)
+		wantMessage(t, res, "watch glob matched no files")
+		f := res.Findings[0]
+		if f.Path != "notes/*.md" {
+			t.Errorf("finding path should be the stale glob, got %q", f.Path)
+		}
+		if f.Code != "tokens/no-match" {
+			t.Errorf("got code %q, want tokens/no-match", f.Code)
+		}
+	})
+
+	t.Run("a glob shadowed by an earlier glob still gets credit", func(t *testing.T) {
+		// Every file matching the second glob also matches the first. The second
+		// glob is redundant, but it did match files — reporting it as matching
+		// nothing would be false.
+		root := writeTree(t, map[string]string{"memory/a.md": "small"})
+		wantCounts(t, runTokens(root, 10, "memory/*.md", "memory/a.md"), 0, 0)
+	})
+
+	t.Run("matching globs stay quiet", func(t *testing.T) {
+		root := writeTree(t, map[string]string{"memory/a.md": "small"})
+		wantCounts(t, runTokens(root, 10, "memory/*.md"), 0, 0)
 	})
 }

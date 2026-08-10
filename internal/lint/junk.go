@@ -25,7 +25,7 @@ func checkJunk(r *runner, cfg *config.Junk) {
 		if d.IsDir() {
 			kind = "directory"
 		}
-		r.yellow(ruleJunk, rel, fmt.Sprintf("junk %s matches %q", kind, glob))
+		r.yellow(ruleJunk, "junk/match", rel, fmt.Sprintf("junk %s matches %q", kind, glob))
 		if d.IsDir() {
 			return fs.SkipDir
 		}

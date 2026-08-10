@@ -35,7 +35,7 @@ func checkAppendOnly(r *runner, cfg *config.AppendOnly) {
 		rel := config.CleanRel(f)
 		if !gitAvailable {
 			r.add(Finding{
-				Rule: ruleAppendOnly, Severity: SeverityYellow, Path: rel,
+				Rule: ruleAppendOnly, Code: "append_only/no-baseline", Severity: SeverityYellow, Path: rel,
 				Message: "no git baseline: append-only not verified",
 				Detail:  "git executable not found in PATH",
 			})
@@ -48,7 +48,7 @@ func checkAppendOnly(r *runner, cfg *config.AppendOnly) {
 func checkAppendOnlyFile(r *runner, rel string) {
 	abs, ok := r.resolve(rel)
 	if !ok {
-		r.red(ruleAppendOnly, rel, "path escapes the repository root")
+		r.red(ruleAppendOnly, "append_only/escape", rel, "path escapes the repository root")
 		return
 	}
 
@@ -58,7 +58,7 @@ func checkAppendOnlyFile(r *runner, rel string) {
 		// established, which the spec assigns YELLOW: an unversioned file has
 		// nothing to have diverged from.
 		r.add(Finding{
-			Rule: ruleAppendOnly, Severity: SeverityYellow, Path: rel,
+			Rule: ruleAppendOnly, Code: "append_only/no-baseline", Severity: SeverityYellow, Path: rel,
 			Message: "no git baseline: append-only not verified",
 			Detail:  gitErr.Error(),
 		})
@@ -68,7 +68,7 @@ func checkAppendOnlyFile(r *runner, rel string) {
 	current, err := os.ReadFile(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			r.red(ruleAppendOnly, rel, "file exists at HEAD but is missing from the working tree")
+			r.red(ruleAppendOnly, "append_only/missing", rel, "file exists at HEAD but is missing from the working tree")
 			return
 		}
 		r.cannotVerify(ruleAppendOnly, rel, err)
@@ -82,7 +82,7 @@ func checkAppendOnlyFile(r *runner, rel string) {
 
 	line, was, now := firstDivergentLine(baseline, current)
 	r.add(Finding{
-		Rule: ruleAppendOnly, Severity: SeverityRed, Path: rel, Line: line,
+		Rule: ruleAppendOnly, Code: "append_only/rewritten", Severity: SeverityRed, Path: rel, Line: line,
 		Message: "append-only violation: content committed at HEAD was modified",
 		Detail:  fmt.Sprintf("was: %s\nnow: %s", was, now),
 	})

@@ -1,7 +1,7 @@
 # fixture-broken
 
 A deliberately broken agent-memory repository. `memlint check` must report
-exactly **7 RED** and **2 YELLOW** findings here, and exit 1.
+exactly **7 RED** and **3 YELLOW** findings here, and exit 1.
 
 | # | Severity | Rule | Planted defect |
 |---|----------|----------|----------------|
@@ -14,6 +14,7 @@ exactly **7 RED** and **2 YELLOW** findings here, and exit 1.
 | 7 | RED | pointers | `docs/nope.md` does not exist |
 | 8 | YELLOW | junk | `notes/scratch.tmp` matches `*.tmp` |
 | 9 | YELLOW | tokens | `memory/big.md` exceeds the 200-token budget |
+| 10 | YELLOW | tokens | watch glob `notes/missing/*.md` matches no files |
 
 `memory/index.md` also carries every reference form that must **not** produce a
 finding. The load-bearing one is `memory/gone-anchored.md#section`: that file

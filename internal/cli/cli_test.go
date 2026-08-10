@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -206,6 +207,7 @@ func TestJSONFormat(t *testing.T) {
 		SchemaVersion int `json:"schema_version"`
 		Findings      []struct {
 			Rule        string `json:"rule"`
+			Code        string `json:"code"`
 			Severity    string `json:"severity"`
 			Path        string `json:"path"`
 			RelatedPath string `json:"related_path"`
@@ -223,11 +225,28 @@ func TestJSONFormat(t *testing.T) {
 	if doc.SchemaVersion != 1 {
 		t.Errorf("got schema_version %d, want 1", doc.SchemaVersion)
 	}
-	if doc.Summary.Red != 7 || doc.Summary.Yellow != 2 {
-		t.Errorf("got %d red / %d yellow, want 7 / 2", doc.Summary.Red, doc.Summary.Yellow)
+	if doc.Summary.Red != 7 || doc.Summary.Yellow != 3 {
+		t.Errorf("got %d red / %d yellow, want 7 / 3", doc.Summary.Red, doc.Summary.Yellow)
 	}
-	if len(doc.Findings) != 9 {
-		t.Errorf("got %d findings, want 9", len(doc.Findings))
+	if len(doc.Findings) != 10 {
+		t.Errorf("got %d findings, want 10", len(doc.Findings))
+	}
+	// Codes are the stable machine identity of a finding. Every finding must
+	// carry one, in "<rule>/<kind>" form.
+	codeRe := regexp.MustCompile(`^[a-z_]+/[a-z-]+$`)
+	seen := map[string]bool{}
+	for _, f := range doc.Findings {
+		if !codeRe.MatchString(f.Code) {
+			t.Errorf("finding %q has malformed code %q", f.Message, f.Code)
+		}
+		seen[f.Code] = true
+	}
+	for _, want := range []string{"blocks/unterminated", "blocks/duplicate-start",
+		"mirrors/differ", "mirrors/one-sided", "pointers/dead-ref",
+		"junk/match", "tokens/over-budget", "tokens/no-match"} {
+		if !seen[want] {
+			t.Errorf("fixture-broken should produce code %q, got %v", want, seen)
+		}
 	}
 	if strings.Contains(got.stdout, "\033") {
 		t.Error("JSON output must never contain ANSI escapes")
@@ -236,6 +255,25 @@ func TestJSONFormat(t *testing.T) {
 		if filepath.IsAbs(f.Path) {
 			t.Errorf("paths must be root-relative, got %q", f.Path)
 		}
+	}
+}
+
+func TestGitHubFormat(t *testing.T) {
+	got := run(t, nil, "check", "--format", "github", fixture("fixture-broken"))
+	if got.code != 1 {
+		t.Fatalf("exited %d, want 1\n%s", got.code, got.stderr)
+	}
+	if !strings.Contains(got.stdout, "::error file=memory/index.md,line=7,title=memlint pointers/dead-ref::") {
+		t.Errorf("missing RED annotation:\n%s", got.stdout)
+	}
+	if !strings.Contains(got.stdout, "::warning file=") {
+		t.Errorf("missing YELLOW annotation:\n%s", got.stdout)
+	}
+	if strings.Contains(got.stdout, "\033") {
+		t.Error("github output must never contain ANSI escapes")
+	}
+	if !strings.Contains(got.stdout, "memlint: 7 red, 3 yellow") {
+		t.Errorf("missing summary line:\n%s", got.stdout)
 	}
 }
 
@@ -291,6 +329,93 @@ func TestUsageErrorsGoToStderr(t *testing.T) {
 	}
 	if !strings.Contains(got.stderr, "unknown command") {
 		t.Errorf("stderr should name the problem, got: %q", got.stderr)
+	}
+}
+
+// init on a repo with evidence must produce a config that check can run
+// immediately — and that surfaces the evidence it was built from.
+func TestInitGeneratesWorkingConfig(t *testing.T) {
+	dir := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		abs := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(abs, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("MEMORY.md", "- [notes](memory/notes.md)\n- [gone](memory/missing.md)\n")
+	write("memory/notes.md", "notes\n")
+	write("memory/.DS_Store", "junk")
+
+	got := run(t, nil, "init", dir)
+	if got.code != 0 {
+		t.Fatalf("init exited %d\nstderr:\n%s", got.code, got.stderr)
+	}
+	if !strings.Contains(got.stdout, "2 rules enabled") {
+		t.Errorf("expected 2 evidence-based rules, got: %q", got.stdout)
+	}
+
+	// The generated config must load and run, and catch the planted defects:
+	// a dead reference (RED) and the .DS_Store that justified [junk] (YELLOW).
+	check := run(t, nil, "check", "--no-color", dir)
+	if check.code != 1 {
+		t.Fatalf("check on generated config exited %d, want 1\nstdout:\n%s\nstderr:\n%s",
+			check.code, check.stdout, check.stderr)
+	}
+	if !strings.Contains(check.stdout, "dead reference: memory/missing.md") {
+		t.Errorf("generated [pointers] should catch the dead reference:\n%s", check.stdout)
+	}
+	if !strings.Contains(check.stdout, ".DS_Store") {
+		t.Errorf("generated [junk] should catch the planted .DS_Store:\n%s", check.stdout)
+	}
+}
+
+func TestInitRefusesOverwrite(t *testing.T) {
+	dir := t.TempDir()
+	if got := run(t, nil, "init", dir); got.code != 0 {
+		t.Fatalf("first init exited %d\n%s", got.code, got.stderr)
+	}
+	before, err := os.ReadFile(filepath.Join(dir, ".memlint.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := run(t, nil, "init", dir)
+	if got.code != 2 {
+		t.Errorf("second init exited %d, want 2", got.code)
+	}
+	if !strings.Contains(got.stderr, "refuses to overwrite") {
+		t.Errorf("stderr should state the refusal, got: %q", got.stderr)
+	}
+	after, err := os.ReadFile(filepath.Join(dir, ".memlint.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Error("refused init must leave the existing config untouched")
+	}
+}
+
+// An empty repository yields no evidence. The generated config must still be
+// valid, and check must disclose that nothing is verified.
+func TestInitEmptyRepo(t *testing.T) {
+	dir := t.TempDir()
+	got := run(t, nil, "init", dir)
+	if got.code != 0 {
+		t.Fatalf("init exited %d\n%s", got.code, got.stderr)
+	}
+	if !strings.Contains(got.stdout, "no rules enabled") {
+		t.Errorf("init must disclose that nothing is enabled, got: %q", got.stdout)
+	}
+	check := run(t, nil, "check", dir)
+	if check.code != 0 {
+		t.Fatalf("check exited %d\n%s", check.code, check.stderr)
+	}
+	if !strings.Contains(check.stdout, "no rules enabled") {
+		t.Errorf("check must disclose that nothing ran, got: %q", check.stdout)
 	}
 }
 

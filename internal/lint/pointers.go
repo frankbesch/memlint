@@ -196,7 +196,7 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 		rel := config.CleanRel(f)
 		abs, ok := r.resolve(rel)
 		if !ok {
-			r.red(rulePointers, rel, "pointer source escapes the repository root")
+			r.red(rulePointers, "pointers/escape", rel, "pointer source escapes the repository root")
 			continue
 		}
 		// Read the whole file rather than scanning it: bufio.Scanner's default
@@ -205,7 +205,7 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 		data, err := os.ReadFile(abs)
 		if err != nil {
 			if os.IsNotExist(err) {
-				r.red(rulePointers, rel, "pointer source file does not exist")
+				r.red(rulePointers, "pointers/missing-source", rel, "pointer source file does not exist")
 			} else {
 				r.cannotVerify(rulePointers, rel, err)
 			}
@@ -221,7 +221,7 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 			if _, err := os.Stat(targetAbs); err != nil {
 				if os.IsNotExist(err) {
 					r.add(Finding{
-						Rule: rulePointers, Severity: SeverityRed, Path: rel,
+						Rule: rulePointers, Code: "pointers/dead-ref", Severity: SeverityRed, Path: rel,
 						RelatedPath: ref.Target, Line: ref.Line,
 						Message: fmt.Sprintf("dead reference: %s does not exist", ref.Target),
 					})

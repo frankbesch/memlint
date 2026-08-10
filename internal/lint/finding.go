@@ -24,7 +24,12 @@ func (s Severity) rank() int {
 
 // Finding is one violated or unverifiable invariant.
 type Finding struct {
-	Rule        string   `json:"rule"`
+	Rule string `json:"rule"`
+	// Code is the finding's stable machine identity, "<rule>/<kind>"
+	// (pointers/dead-ref, blocks/unterminated, tokens/no-match, ...). Messages
+	// may be reworded; codes may not. Additions are non-breaking; renaming or
+	// removing one bumps report.SchemaVersion.
+	Code        string   `json:"code"`
 	Severity    Severity `json:"severity"`
 	Path        string   `json:"path"`
 	RelatedPath string   `json:"related_path,omitempty"`

@@ -37,7 +37,7 @@ func checkHumanBrief(r *runner, cfg *config.HumanBrief) {
 	if _, err := exec.LookPath("git"); err != nil {
 		for _, f := range cfg.Files {
 			r.add(Finding{
-				Rule: ruleHumanBrief, Severity: SeverityYellow, Path: config.CleanRel(f),
+				Rule: ruleHumanBrief, Code: "human_brief/no-baseline", Severity: SeverityYellow, Path: config.CleanRel(f),
 				Message: "no git history: human-brief authorship not verified",
 				Detail:  "git executable not found in PATH",
 			})
@@ -51,7 +51,7 @@ func checkHumanBrief(r *runner, cfg *config.HumanBrief) {
 
 func checkHumanBriefFile(r *runner, rel string, agents []string) {
 	if _, ok := r.resolve(rel); !ok {
-		r.red(ruleHumanBrief, rel, "path escapes the repository root")
+		r.red(ruleHumanBrief, "human_brief/escape", rel, "path escapes the repository root")
 		return
 	}
 
@@ -60,7 +60,7 @@ func checkHumanBriefFile(r *runner, rel string, agents []string) {
 		// Same policy as [append_only]: no history means the invariant could
 		// not be established, not that it was violated.
 		r.add(Finding{
-			Rule: ruleHumanBrief, Severity: SeverityYellow, Path: rel,
+			Rule: ruleHumanBrief, Code: "human_brief/no-baseline", Severity: SeverityYellow, Path: rel,
 			Message: "no git history: human-brief authorship not verified",
 			Detail:  err.Error(),
 		})
@@ -68,7 +68,7 @@ func checkHumanBriefFile(r *runner, rel string, agents []string) {
 	}
 	if len(commits) == 0 {
 		r.add(Finding{
-			Rule: ruleHumanBrief, Severity: SeverityYellow, Path: rel,
+			Rule: ruleHumanBrief, Code: "human_brief/no-baseline", Severity: SeverityYellow, Path: rel,
 			Message: "no git history: human-brief authorship not verified",
 			Detail:  "no commits touch this file",
 		})
@@ -98,7 +98,7 @@ func checkHumanBriefFile(r *runner, rel string, agents []string) {
 		detail += fmt.Sprintf("\nand %d earlier agent-authored commit(s)", n)
 	}
 	r.add(Finding{
-		Rule: ruleHumanBrief, Severity: SeverityRed, Path: rel,
+		Rule: ruleHumanBrief, Code: "human_brief/agent-commit", Severity: SeverityRed, Path: rel,
 		Message: "human-brief violation: agent-authored commit in file history",
 		Detail:  detail,
 	})

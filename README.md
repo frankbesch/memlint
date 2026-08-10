@@ -14,8 +14,10 @@ wrong span. Nothing
 fails. The agent just starts working from something that is no longer true.
 
 memlint checks the invariants you declare and reports the ones that broke.
-It is **read-only**. It never edits, creates, moves, or deletes a file, and
-there is no `--fix` flag to add one.
+`check` is **read-only**: it never edits, creates, moves, or deletes a file,
+and there is no `--fix` flag to add one. The single write in the whole tool is
+`memlint init`, which creates a starter config once and refuses to overwrite
+it.
 
 ## Install
 
@@ -23,35 +25,39 @@ there is no `--fix` flag to add one.
 go install github.com/frankbesch/memlint@latest
 ```
 
+On macOS, Homebrew works too:
+
+```bash
+brew install frankbesch/tap/memlint
+```
+
 Or download a prebuilt binary for macOS or Linux from the
 [releases page](https://github.com/frankbesch/memlint/releases) and verify it
-against the release's `checksums.txt`. Either way, `memlint --version` tells
-you what you got.
+against the release's `checksums.txt`. Whichever route, `memlint --version`
+tells you what you got.
 
 ## Quick start
 
 From the root of the repo your agent uses as memory:
 
 ```bash
-cat > .memlint.toml <<'EOF'
-[pointers]
-files = ["MEMORY.md"]
-roots = ["memory"]
-
-[junk]
-globs = [".DS_Store", "*.tmp"]
-EOF
-memlint check
+memlint init && memlint check
 ```
 
-Two invariants are now live: every `memory/...` path referenced in `MEMORY.md`
-must exist, and stray junk files get flagged. Add more rules from the
-[table below](#rules) as your repo accumulates invariants worth declaring.
+`init` inspects the repository and writes a commented `.memlint.toml`,
+enabling only rules it found evidence for — an index file like `MEMORY.md`
+gets `[pointers]`, observed `.DS_Store` or `*.tmp` files get `[junk]` — and
+leaves every other rule as a commented example to adapt. It refuses to
+overwrite an existing config, and it is the only memlint command that writes a
+file. Review what it generated, then add rules from the [table below](#rules)
+as your repo accumulates invariants worth declaring.
 
 ## Usage
 
 ```bash
 memlint check [flags] [path]
+memlint init [path]
+memlint --version
 ```
 
 `path` defaults to `.`. memlint reads `.memlint.toml` at that path, runs the
@@ -76,7 +82,9 @@ pointers  RED     memory/index.md:7    dead reference: memory/missing.md does no
 pointers  RED     memory/index.md:8    dead reference: docs/nope.md does not exist
 junk      YELLOW  notes/scratch.tmp    junk file matches "*.tmp"
 tokens    YELLOW  memory/big.md        420 estimated tokens exceeds budget of 200
-memlint: 7 red, 2 yellow
+tokens    YELLOW  notes/missing/*.md   watch glob matched no files
+    a stale watch glob is a budget check that silently never runs
+memlint: 7 red, 3 yellow
 ```
 
 A clean repository prints one line:
@@ -90,7 +98,7 @@ memlint: clean (5 rules, 8 files checked)
 | Flag | Effect |
 |------|--------|
 | `--strict` | YELLOW findings also fail the run |
-| `--format text\|json` | output format, default `text` |
+| `--format text\|json\|github` | output format, default `text`; `github` emits GitHub Actions annotations |
 | `--no-color` | disable ANSI color (also honored: `NO_COLOR`) |
 | `-h`, `--help` | usage |
 
@@ -115,6 +123,20 @@ output is always clean.
 Exit 2 is reserved for failures that happen **before** any invariant is
 evaluated. It never overlaps with a real result, so CI can tell "your memory
 repo is broken" apart from "memlint is misconfigured."
+
+### In GitHub Actions
+
+`--format github` renders every finding as an inline annotation on the pull
+request diff — `::error` for RED, `::warning` for YELLOW:
+
+```yaml
+- run: memlint check --format github --strict .
+```
+
+Every finding carries a stable machine code (`pointers/dead-ref`,
+`blocks/unterminated`, `tokens/no-match`, ...) used as the annotation title
+and present in JSON output. Messages may be reworded between releases; codes
+may not.
 
 ## Configuration
 
@@ -190,7 +212,10 @@ at git `HEAD`. A violation reports the first divergent line as `was:` / `now:`.
 
 **Scope, precisely:** this compares `HEAD` against the working tree. It is a
 working-tree rewrite guard, **not historical immutability enforcement**. Once a
-rewrite is committed it becomes the new baseline and this rule goes quiet. See
+rewrite is committed it becomes the new baseline and this rule goes quiet. Note
+what that means for CI: a CI checkout's working tree *is* HEAD, so in CI this
+rule always passes — it guards local, uncommitted state. A base-ref comparison
+that turns it into a pull-request gate is on the roadmap. See
 [internal/lint/appendonly_test.go](internal/lint/appendonly_test.go), which
 tests that limitation explicitly rather than leaving it implied.
 
@@ -321,6 +346,12 @@ Unlike `[junk]`, watch globs match the root-relative path **only**, never the
 basename. A budget is a statement about specific files, and letting `CLAUDE.md`
 match every nested `CLAUDE.md` would widen it silently.
 
+A watch glob that matches no file at all is itself a YELLOW finding
+(`tokens/no-match`). A stale glob — a renamed directory, a typo — is a budget
+check that silently never runs, which is the same failure mode the config
+loader refuses for unknown keys. `[junk]` is exempt: there, matching nothing
+is the desired state.
+
 ### Glob semantics
 
 `*` matches within a single path segment and does not cross `/`. Recursive `**`
@@ -345,6 +376,7 @@ deterministic order:
   "findings": [
     {
       "rule": "pointers",
+      "code": "pointers/dead-ref",
       "severity": "RED",
       "path": "memory/index.md",
       "related_path": "memory/missing.md",
@@ -371,13 +403,13 @@ asked to perform and still reports clean is worse than one that fails loudly.
 ```bash
 go test ./...
 go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 7 red, 2 yellow, exit 1
+./memlint check --no-color testdata/fixture-broken   # 7 red, 3 yellow, exit 1
 ./memlint check --no-color testdata/fixture-clean    # clean, exit 0
 ./memlint check --no-color testdata/fixture-yellow   # yellow only, exit 0
 ```
 
 [testdata/fixture-broken](testdata/fixture-broken) carries seven planted RED
-defects and two planted YELLOW ones, plus every reference form that must **not**
+defects and three planted YELLOW ones, plus every reference form that must **not**
 be reported. The counts are the acceptance test: a rule that starts
 over-reporting or quietly stops reporting breaks it.
 
@@ -397,7 +429,6 @@ whole pipeline locally without publishing anything.
 - **Richer append-only baselines** — compare against the index, an arbitrary
   base ref, or a pull request's merge base, so a *committed* rewrite is caught
   too.
-- **`memlint init`** — generate a starter config from what a repo looks like.
 - **Recursive `**` globs.**
 - **Machine-readable rule docs**, so a finding can link to its own explanation.
 - **Rename-aware `[human_brief]`** — follow a brief across renames instead of
@@ -409,11 +440,12 @@ useful form — "this delta is only timestamp churn" — is a content judgment)
 and repair-marker validation (detecting *unmarked* degraded output means
 validating the output itself, which is semantic linting, a non-goal).
 
-## Non-goals for v0.1
+## Non-goals
 
-Autofix and any form of file mutation. HTML output. Watch mode. Semantic or
-content linting — memlint checks mechanical invariants, not whether your notes
-are any good. Additional subcommands.
+Autofix and any form of repair — `check` never mutates a file, and `init`, the
+one write in the whole tool, only ever creates a `.memlint.toml` that did not
+exist. HTML output. Watch mode. Semantic or content linting — memlint checks
+mechanical invariants, not whether your notes are any good.
 
 ## License
 

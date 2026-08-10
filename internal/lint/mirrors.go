@@ -39,7 +39,7 @@ func checkMirrorPair(r *runner, a, b string) {
 		compareMirrorFiles(r, a, aAbs, b, bAbs)
 	default:
 		r.add(Finding{
-			Rule: ruleMirrors, Severity: SeverityRed, Path: a, RelatedPath: b,
+			Rule: ruleMirrors, Code: "mirrors/kind-mismatch", Severity: SeverityRed, Path: a, RelatedPath: b,
 			Message: fmt.Sprintf("mirror endpoints are not the same kind: %s is %s, %s is %s",
 				a, kindOf(aInfo), b, kindOf(bInfo)),
 		})
@@ -52,7 +52,7 @@ func (r *runner) mirrorEndpoint(p, related string) (string, os.FileInfo, bool) {
 	abs, ok := r.resolve(p)
 	if !ok {
 		r.add(Finding{
-			Rule: ruleMirrors, Severity: SeverityRed, Path: p, RelatedPath: related,
+			Rule: ruleMirrors, Code: "mirrors/escape", Severity: SeverityRed, Path: p, RelatedPath: related,
 			Message: "mirror endpoint escapes the repository root",
 		})
 		return "", nil, false
@@ -61,7 +61,7 @@ func (r *runner) mirrorEndpoint(p, related string) (string, os.FileInfo, bool) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			r.add(Finding{
-				Rule: ruleMirrors, Severity: SeverityRed, Path: p, RelatedPath: related,
+				Rule: ruleMirrors, Code: "mirrors/missing", Severity: SeverityRed, Path: p, RelatedPath: related,
 				Message: "mirror endpoint does not exist",
 			})
 		} else {
@@ -112,7 +112,7 @@ func compareMirrorFiles(r *runner, aRel, aAbs, bRel, bAbs string) {
 		msg = fmt.Sprintf("mirrored files differ at byte %d (line %d, col %d)", off, line, col)
 	}
 	r.add(Finding{
-		Rule: ruleMirrors, Severity: SeverityRed, Path: aRel, RelatedPath: bRel,
+		Rule: ruleMirrors, Code: "mirrors/differ", Severity: SeverityRed, Path: aRel, RelatedPath: bRel,
 		Message: msg,
 		Detail:  fmt.Sprintf("%s is %d bytes, %s is %d bytes", aRel, len(aData), bRel, len(bData)),
 	})
@@ -177,13 +177,13 @@ func compareMirrorDirs(r *runner, aRel, aAbs, bRel, bAbs string) {
 		case hasA && !hasB:
 			r.mark(aMember)
 			r.add(Finding{
-				Rule: ruleMirrors, Severity: SeverityRed, Path: aMember, RelatedPath: bMember,
+				Rule: ruleMirrors, Code: "mirrors/one-sided", Severity: SeverityRed, Path: aMember, RelatedPath: bMember,
 				Message: fmt.Sprintf("present in %s but missing from %s", aRel, bRel),
 			})
 		case !hasA && hasB:
 			r.mark(bMember)
 			r.add(Finding{
-				Rule: ruleMirrors, Severity: SeverityRed, Path: bMember, RelatedPath: aMember,
+				Rule: ruleMirrors, Code: "mirrors/one-sided", Severity: SeverityRed, Path: bMember, RelatedPath: aMember,
 				Message: fmt.Sprintf("present in %s but missing from %s", bRel, aRel),
 			})
 		default:

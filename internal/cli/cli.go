@@ -51,14 +51,21 @@ const usageText = `memlint - invariant checker for file-based agent memory
 
 Usage:
   memlint check [flags] [path]
+  memlint init [path]
   memlint --version
 
-Checks the invariants declared in <path>/.memlint.toml. Path defaults to ".".
-memlint is read-only: it reports drift and never repairs it.
+check evaluates the invariants declared in <path>/.memlint.toml. Path defaults
+to ".". check is read-only: it reports drift and never repairs it.
+
+init inspects the repository and writes a commented starter .memlint.toml,
+enabling only rules it found evidence for. It refuses to overwrite an existing
+config, and it is the only memlint command that writes a file.
 
 Flags (must precede [path]):
   --strict             treat YELLOW findings as failures
-  --format text|json   output format (default "text")
+  --format text|json|github
+                       output format (default "text"); "github" emits
+                       GitHub Actions annotations
   --no-color           disable ANSI color (also honors NO_COLOR)
   -h, --help           show this help
 
@@ -79,6 +86,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "check":
 		return runCheck(args[1:], stdout, stderr)
+	case "init":
+		return runInit(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		fmt.Fprint(stdout, usageText)
 		return ExitClean
@@ -98,7 +107,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	fs.Usage = func() { fmt.Fprint(stderr, usageText) }
 
 	strict := fs.Bool("strict", false, "treat YELLOW findings as failures")
-	format := fs.String("format", "text", `output format: "text" or "json"`)
+	format := fs.String("format", "text", `output format: "text", "json", or "github"`)
 	noColor := fs.Bool("no-color", false, "disable ANSI color")
 
 	if err := fs.Parse(args); err != nil {
@@ -118,8 +127,8 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, usageText)
 		return ExitUsage
 	}
-	if *format != "text" && *format != "json" {
-		fmt.Fprintf(stderr, "memlint: unknown format %q (want \"text\" or \"json\")\n", *format)
+	if *format != "text" && *format != "json" && *format != "github" {
+		fmt.Fprintf(stderr, "memlint: unknown format %q (want \"text\", \"json\", or \"github\")\n", *format)
 		return ExitUsage
 	}
 
@@ -153,9 +162,12 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 
 	res := lint.Run(absRoot, cfg)
 
-	if *format == "json" {
+	switch *format {
+	case "json":
 		err = report.JSON(stdout, res)
-	} else {
+	case "github":
+		err = report.GitHub(stdout, res)
+	default:
 		err = report.Text(stdout, res, useColor(*noColor, *format, stdout))
 	}
 	if err != nil {

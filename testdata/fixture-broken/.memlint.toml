@@ -1,4 +1,4 @@
-# Fixture with seven planted RED defects and two planted YELLOW defects.
+# Fixture with seven planted RED defects and three planted YELLOW defects.
 # See README.md in this directory for the inventory.
 #
 # [append_only] is deliberately absent: a committed fixture file always equals
@@ -26,6 +26,8 @@ roots = ["memory", "docs"]
 [junk]
 globs = ["*.tmp"]
 
+# The second watch glob deliberately matches nothing: a stale glob is a
+# budget check that silently never runs, and must be reported, not skipped.
 [tokens]
-watch = ["memory/*.md"]
+watch = ["memory/*.md", "notes/missing/*.md"]
 budget = 200

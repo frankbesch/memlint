@@ -101,3 +101,46 @@ as the first binaries: an unidentifiable binary is a support burden.
 The ldflags symbol is pinned by a test that builds with -X and asserts
 the output, so renaming the variable breaks tests before it breaks
 releases.
+
+# --- v0.4 addendum: critique fixes + adds (approved 2026-08-10) ---
+
+Fix — [tokens] zero-match watch glob: a watch glob that matches no file
+is YELLOW ("watch glob matched no files"), one finding per glob, path =
+the glob string. Rationale: [tokens] watch declares files the config
+author expects to exist, so a stale glob is a check that silently never
+ran — the failure mode the config layer already refuses for typo'd keys.
+[junk] is exempt (matching nothing is the desired state) and [pointers]/
+[mirrors]/[blocks] already report missing declared files as RED.
+fixture-broken gains one zero-match glob: acceptance becomes 7 red +
+3 yellow.
+
+Add — finding codes: every finding carries a stable machine code
+"<rule>/<kind>" (e.g. pointers/dead-ref, blocks/unterminated,
+mirrors/missing, tokens/no-match, <rule>/unverifiable). Codes are
+additive in the JSON document (schema_version stays 1; additions are
+non-breaking, removals or renames bump it). Text output is unchanged.
+Construction is explicit per site — helpers require a code, so the
+compiler enforces coverage.
+
+Add — --format github: GitHub Actions workflow commands, one annotation
+per finding: ::error (RED) / ::warning (YELLOW) with file=, line= (when
+known), title=memlint <code>. Data is escaped per the workflow-command
+rules (% -> %25, CR -> %0D, LF -> %0A; property values also , -> %2C,
+: -> %3A). Never colored. Summary line still printed as plain text.
+Exit codes unchanged.
+
+Add — memlint init [path]: writes a commented .memlint.toml at path from
+read-only inspection of the repo; REFUSES to overwrite an existing
+config (exit 2). Exit 0 on write, 2 on any failure; exit 1 unused. Rules
+are enabled only on evidence (an index file that exists -> [pointers]
+with roots = top-level dirs containing .md files; observed .DS_Store or
+*.tmp -> [junk]); everything else appears as commented-out examples.
+The generated config must always pass config.Load — pinned by test.
+This flips two v0.1 non-goals (config generation, additional
+subcommands) — both already promised by the public README roadmap, and
+approved explicitly with this addendum. init performs memlint's ONLY
+file write, creating one new file; check remains strictly read-only.
+
+Add — Homebrew tap: goreleaser brews block publishing to
+frankbesch/homebrew-tap. Prerequisites (manual, before next tag): create
+the tap repo, add a TAP_GITHUB_TOKEN secret with write access to it.

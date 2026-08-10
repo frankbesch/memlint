@@ -38,6 +38,26 @@ changelog:
       - "^ci:"
       - "^test:"
 
+# Publishing the cask needs two things that live outside this repo: the
+# frankbesch/homebrew-tap repository, and a TAP_GITHUB_TOKEN secret with write
+# access to it. Until both exist, a tag push will fail at this step — that is
+# deliberate; a release that silently skips its own install path is worse.
+homebrew_casks:
+  - repository:
+      owner: frankbesch
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/frankbesch/memlint
+    description: Invariant checker for file-based agent memory
+    # The binaries are not notarized, so strip the quarantine bit Gatekeeper
+    # would otherwise use to block the first run.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/memlint"]
+          end
+
 release:
   footer: |
     ---

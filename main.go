@@ -1,5 +1,7 @@
 // Command memlint checks mechanical invariants in file-based agent memory
-// repositories. It is read-only: it never modifies, creates, or repairs files.
+// repositories. check is read-only: it never modifies, creates, or repairs
+// files. The one exception in the whole tool is init, which creates a starter
+// .memlint.toml and refuses to overwrite an existing one.
 package main
 
 import (

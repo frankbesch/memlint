@@ -28,7 +28,7 @@ func runFixture(t *testing.T, name string) Result {
 // starts over-reporting or silently stops reporting, this fails.
 func TestFixtureBroken(t *testing.T) {
 	res := runFixture(t, "fixture-broken")
-	wantCounts(t, res, 7, 2)
+	wantCounts(t, res, 7, 3)
 
 	want := []struct{ rule, path, message string }{
 		{"blocks", "AGENTS.md", "unterminated"},
@@ -40,6 +40,7 @@ func TestFixtureBroken(t *testing.T) {
 		{"pointers", "memory/index.md", "dead reference: docs/nope.md"},
 		{"junk", "notes/scratch.tmp", `junk file matches "*.tmp"`},
 		{"tokens", "memory/big.md", "estimated tokens exceeds budget"},
+		{"tokens", "notes/missing/*.md", "watch glob matched no files"},
 	}
 	for _, w := range want {
 		if !hasFinding(res, w.rule, w.path, w.message) {

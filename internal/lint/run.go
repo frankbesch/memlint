@@ -86,18 +86,20 @@ func (r *runner) add(f Finding) { r.findings = append(r.findings, f) }
 // mark records that a path was actually inspected, for the clean-line count.
 func (r *runner) mark(rel string) { r.checked[rel] = struct{}{} }
 
-func (r *runner) red(rule, path, msg string) {
-	r.add(Finding{Rule: rule, Severity: SeverityRed, Path: path, Message: msg})
+// red and yellow require a code so that no construction site can forget one:
+// the finding vocabulary in SPEC.md is enforced by the compiler, not by review.
+func (r *runner) red(rule, code, path, msg string) {
+	r.add(Finding{Rule: rule, Code: code, Severity: SeverityRed, Path: path, Message: msg})
 }
 
-func (r *runner) yellow(rule, path, msg string) {
-	r.add(Finding{Rule: rule, Severity: SeverityYellow, Path: path, Message: msg})
+func (r *runner) yellow(rule, code, path, msg string) {
+	r.add(Finding{Rule: rule, Code: code, Severity: SeverityYellow, Path: path, Message: msg})
 }
 
 // cannotVerify reports a check that could not be completed. This is RED by
 // design: an unevaluated invariant must never be reported as clean.
 func (r *runner) cannotVerify(rule, path string, err error) {
-	r.red(rule, path, fmt.Sprintf("could not verify: %v", unwrapPathErr(err)))
+	r.red(rule, rule+"/unverifiable", path, fmt.Sprintf("could not verify: %v", unwrapPathErr(err)))
 }
 
 // unwrapPathErr strips the redundant absolute path an *os.PathError carries,
