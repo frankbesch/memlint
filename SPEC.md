@@ -61,19 +61,23 @@ New rules (same contract: read-only, section presence enables):
    Listed file missing = RED. Config rejects empty/equal/multiline
    markers and markers containing each other (ambiguous matching).
 7. [human_brief] files=[...], agent_authors=[...] — the full git history
-   of each listed file must contain no commit whose author name or email
-   equals (case-insensitive, exact) a configured agent identity.
-   Violation RED, once per file, naming the most recent offending commit
-   plus a count of earlier ones. No git / no repo / no commits touching
-   the file = YELLOW, mirroring [append_only]. This is deliberately the
-   first history-scanning rule: authorship is not readable from the
-   working tree, so scanning history IS the invariant, not scope creep.
-   Renames are not followed.
+   of each listed file must contain no commit authored OR co-authored by a
+   configured agent identity. Both the commit author and every
+   Co-Authored-By trailer are checked (the trailer is the common assisted-
+   commit shape, so author-only matching would pass the very commits this
+   rule exists to catch); match is by name or email, case-insensitive and
+   exact. Violation RED, once per file, naming the most recent offending
+   commit (author or co-author) plus a count of earlier ones. No git / no
+   repo / no commits touching the file = YELLOW, mirroring [append_only].
+   This is deliberately the first history-scanning rule: authorship is not
+   readable from the working tree, so scanning history IS the invariant,
+   not scope creep. Renames are not followed.
 
 Tests: table-driven block scanner (well-formed, same-line block,
 indented markers, each malformation, missing file); human_brief against
-real temp repos (clean, match by name, by email, case-insensitive,
-multiple agent commits, untracked = yellow, no repo = yellow, root
+real temp repos (clean, match by author name, by author email, by
+Co-Authored-By trailer name/email, case-insensitive, human co-author is
+clean, multiple agent commits, untracked = yellow, no repo = yellow, root
 inside larger repo, agent edit stays RED after later human commits).
 fixture-broken gains 2 blocks REDs (unterminated AGENTS.md, duplicate
 start docs/generated.md): acceptance becomes 7 red + 2 yellow.

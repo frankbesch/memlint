@@ -185,15 +185,24 @@ The config rejects empty, identical, or multiline markers, and markers that
 contain each other, which would make every occurrence of the longer marker also
 count as the shorter one.
 
+Because matching is literal, a file that documents its own markers in prose — an
+example that quotes the `start`/`end` strings — has those occurrences counted
+too, and will report a duplicate-marker finding. Keep the marker strings out of
+the block-carrying file's human-readable examples.
+
 ### `[human_brief]` — files agents must never write · RED
 
 The human brief is the file an agent reads for scope and priorities but never
 writes — intent and output on opposite sides of a hard line. This rule verifies
 that line held: the **full git history** of each listed file must contain no
-commit whose author name or email equals (case-insensitively, but exactly —
-`claude` does not match `claude reviewer`) one of the configured
-`agent_authors`. A violation is RED, reported once per file, naming the most
-recent offending commit plus a count of earlier ones.
+commit **authored or co-authored** by one of the configured `agent_authors`.
+Both the commit author and every `Co-Authored-By:` trailer are checked — the
+trailer is the common case, since assisted commits usually land with a human
+author and an agent trailer, so matching the author alone would pass the very
+commits this rule exists to catch. Matching is by name or email,
+case-insensitively but exactly (`claude` does not match `claude reviewer`). A
+violation is RED, reported once per file, naming the most recent offending
+commit — author or co-author — plus a count of earlier ones.
 
 **Scope, precisely — and deliberately different from `[append_only]`:** that
 rule compares only HEAD against the working tree, and a committed rewrite goes
@@ -204,9 +213,20 @@ an agent-authored commit stays visible after later human commits land on top;
 see [internal/lint/humanbrief_test.go](internal/lint/humanbrief_test.go), which
 tests both properties explicitly.
 
-What this rule requires of your setup: agents must commit under identities
-distinguishable from yours (a bot name or bot email). If your agent commits as
-you, the check is vacuously green. Renames are not followed; history before a
+What this rule requires of your setup: an agent must be identifiable in commit
+metadata — a bot name or bot email in the author field, or in a
+`Co-Authored-By:` trailer. If an agent commits as you with no trailer, nothing
+in git records that it wrote the file, and the check cannot see it.
+
+For Claude Code specifically, assisted commits land as `Author: <you>` with a
+`Co-Authored-By: Claude <model> <noreply@anthropic.com>` trailer. Match on the
+**email**, which is stable, not the model name, which changes each release:
+
+```toml
+[human_brief]
+files = ["INSTRUCTIONS.md"]
+agent_authors = ["noreply@anthropic.com"]
+``` Renames are not followed; history before a
 rename belongs to the old path. No git repository, no commits, or a file no
 commit touches is **YELLOW**, mirroring `[append_only]`: the invariant could
 not be established, not violated.

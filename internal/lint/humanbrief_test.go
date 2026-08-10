@@ -141,6 +141,54 @@ func TestHumanBriefAgentCommitStaysVisibleAfterHumanCommits(t *testing.T) {
 	wantMessage(t, res, "human-brief violation")
 }
 
+// The dominant real-world shape: a human authors the commit and the agent
+// appears only in a Co-Authored-By trailer. Author-only matching would pass
+// this, which is exactly the case the rule exists to catch.
+func TestHumanBriefCoAuthorTrailerFails(t *testing.T) {
+	requireGit(t)
+
+	t.Run("co-author matched by name", func(t *testing.T) {
+		root := newRepo(t, map[string]string{"INSTRUCTIONS.md": "scope\n"})
+		writeFile(t, root, "INSTRUCTIONS.md", "scope\nassisted line\n")
+		commitAs(t, root, "Frank", "frank@example.invalid",
+			"assisted edit\n\nCo-authored-by: "+agentBot+" <bot@example.invalid>")
+
+		res := runHumanBrief(root, []string{agentBot}, "INSTRUCTIONS.md")
+		wantCounts(t, res, 1, 0)
+		wantMessage(t, res, "human-brief violation")
+		if d := res.Findings[0].Detail; !strings.Contains(d, "co-authored by") {
+			t.Errorf("detail should name the co-author role, got %q", d)
+		}
+	})
+
+	t.Run("co-author matched by email", func(t *testing.T) {
+		root := newRepo(t, map[string]string{"INSTRUCTIONS.md": "scope\n"})
+		writeFile(t, root, "INSTRUCTIONS.md", "scope\nassisted line\n")
+		commitAs(t, root, "Frank", "frank@example.invalid",
+			"assisted edit\n\nCo-authored-by: Some Bot <agent@bots.invalid>")
+
+		wantCounts(t, runHumanBrief(root, []string{"agent@bots.invalid"}, "INSTRUCTIONS.md"), 1, 0)
+	})
+
+	t.Run("trailer key is case-insensitive", func(t *testing.T) {
+		root := newRepo(t, map[string]string{"INSTRUCTIONS.md": "scope\n"})
+		writeFile(t, root, "INSTRUCTIONS.md", "scope\nassisted line\n")
+		commitAs(t, root, "Frank", "frank@example.invalid",
+			"assisted edit\n\nCO-AUTHORED-BY: "+agentBot+" <bot@example.invalid>")
+
+		wantCounts(t, runHumanBrief(root, []string{agentBot}, "INSTRUCTIONS.md"), 1, 0)
+	})
+
+	t.Run("a human co-author is not a violation", func(t *testing.T) {
+		root := newRepo(t, map[string]string{"INSTRUCTIONS.md": "scope\n"})
+		writeFile(t, root, "INSTRUCTIONS.md", "scope\npaired line\n")
+		commitAs(t, root, "Frank", "frank@example.invalid",
+			"paired edit\n\nCo-authored-by: Colleague <colleague@example.invalid>")
+
+		wantCounts(t, runHumanBrief(root, []string{agentBot}, "INSTRUCTIONS.md"), 0, 0)
+	})
+}
+
 func TestHumanBriefYellowWhenNoHistory(t *testing.T) {
 	requireGit(t)
 
