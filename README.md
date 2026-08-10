@@ -1,5 +1,8 @@
 # memlint
 
+[![CI](https://github.com/frankbesch/memlint/actions/workflows/ci.yml/badge.svg)](https://github.com/frankbesch/memlint/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 An invariant checker for file-based agent memory.
 
 Think `fsck`, not ESLint. AI runtimes like Claude Code and Codex read repos of
@@ -19,6 +22,26 @@ there is no `--fix` flag to add one.
 ```bash
 go install github.com/frankbesch/memlint@latest
 ```
+
+## Quick start
+
+From the root of the repo your agent uses as memory:
+
+```bash
+cat > .memlint.toml <<'EOF'
+[pointers]
+files = ["MEMORY.md"]
+roots = ["memory"]
+
+[junk]
+globs = [".DS_Store", "*.tmp"]
+EOF
+memlint check
+```
+
+Two invariants are now live: every `memory/...` path referenced in `MEMORY.md`
+must exist, and stray junk files get flagged. Add more rules from the
+[table below](#rules) as your repo accumulates invariants worth declaring.
 
 ## Usage
 
@@ -132,6 +155,16 @@ mistaken for verification.
 
 ## Rules
 
+| Rule | Invariant | Severity |
+|------|-----------|----------|
+| [`[mirrors]`](#mirrors--files-that-must-stay-identical--red) | copies that must stay byte-identical | RED |
+| [`[append_only]`](#append_only--logs-that-may-only-grow--red) | logs that may only grow | RED |
+| [`[blocks]`](#blocks--ownership-blocks-that-must-stay-well-formed--red) | agent-owned regions that must stay well-formed | RED |
+| [`[human_brief]`](#human_brief--files-agents-must-never-write--red) | files no agent may ever have written | RED |
+| [`[pointers]`](#pointers--references-that-must-resolve--red) | references that must resolve | RED |
+| [`[junk]`](#junk--files-that-should-not-be-there--yellow) | files that should not be there | YELLOW |
+| [`[tokens]`](#tokens--notes-that-got-too-expensive--yellow) | notes that outgrew their token budget | YELLOW |
+
 ### `[mirrors]` — files that must stay identical · RED
 
 Each pair is two files or two directories.
@@ -226,10 +259,12 @@ For Claude Code specifically, assisted commits land as `Author: <you>` with a
 [human_brief]
 files = ["INSTRUCTIONS.md"]
 agent_authors = ["noreply@anthropic.com"]
-``` Renames are not followed; history before a
-rename belongs to the old path. No git repository, no commits, or a file no
-commit touches is **YELLOW**, mirroring `[append_only]`: the invariant could
-not be established, not violated.
+```
+
+Renames are not followed; history before a rename belongs to the old path. No
+git repository, no commits, or a file no commit touches is **YELLOW**,
+mirroring `[append_only]`: the invariant could not be established, not
+violated.
 
 ### `[pointers]` — references that must resolve · RED
 

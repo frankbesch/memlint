@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "files need gofmt:" && echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
+
+      - name: build
+        run: go build -o ./memlint .
+
+      # The fixtures are the acceptance contract: exact finding counts and
+      # exact exit codes. A rule that over-reports or goes quiet fails here.
+      - name: acceptance — broken fixture exits 1 with 7 red, 2 yellow
+        run: |
+          set +e
+          out=$(./memlint check --no-color testdata/fixture-broken)
+          code=$?
+          set -e
+          echo "$out"
+          [ "$code" -eq 1 ]
+          echo "$out" | tail -1 | grep -qx "memlint: 7 red, 2 yellow"
+
+      - name: acceptance — clean fixture exits 0
+        run: |
+          out=$(./memlint check --no-color testdata/fixture-clean)
+          echo "$out"
+          echo "$out" | grep -q "^memlint: clean"
+
+      - name: acceptance — yellow fixture exits 0, fails under --strict
+        run: |
+          ./memlint check --no-color testdata/fixture-yellow
+          set +e
+          ./memlint check --no-color --strict testdata/fixture-yellow
+          code=$?
+          set -e
+          [ "$code" -eq 1 ]
+
+      - name: self-check — memlint runs clean on its own repository
+        run: ./memlint check --no-color --strict .
