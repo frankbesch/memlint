@@ -440,12 +440,24 @@ whole pipeline locally without publishing anything.
 
 ## Roadmap
 
-- **Anchor-aware pointers** — check the base file of `notes.md#section`, and
-  eventually the anchor itself.
-- **Recursive `**` globs.**
-- **Machine-readable rule docs**, so a finding can link to its own explanation.
-- **Rename-aware `[human_brief]`** — follow a brief across renames instead of
-  treating pre-rename history as a different file.
+In priority order:
+
+1. **Pointers grow up** — anchor-aware checking (`notes.md#section` checks the
+   base file, eventually the anchor itself) and glob support in `files` for
+   `[pointers]` and `[tokens]`, so coverage does not silently narrow as a repo
+   adds files. Both are contract changes to currently-documented behavior.
+2. **Self-describing findings** — each finding links to its own explanation
+   (docs anchor in text output, `doc_url` alongside `code` in JSON). The
+   stable finding codes shipped in v0.4.0 are the hook. Open design question:
+   a `memlint explain <rule>` subcommand would be the best UX but conflicts
+   with the standing subcommand restraint — resolving that is a spec decision,
+   not a code decision.
+3. **Recursive `**` globs.**
+4. **Rename-aware `[human_brief]`** — follow a brief across renames instead of
+   treating pre-rename history as a different file.
+
+Shipped from earlier roadmaps: `memlint init` (v0.4.0), base-ref
+`[append_only]` via `--base` (v0.5.0).
 
 Considered from the agent-cohabitation contract and **not** adopted: no-op
 commit detection (history hygiene rather than a repo-state invariant, and its
