@@ -1,0 +1,45 @@
+# Release automation. Runs from .github/workflows/release.yml on tag push.
+#
+# The ldflags -X symbol below is pinned by TestVersionInjection in
+# internal/cli/cli_test.go: renaming cli.version fails tests before it can
+# silently break a release. {{ .Tag }} (not {{ .Version }}) keeps the leading
+# "v" so released binaries print the same shape as `go install` builds.
+version: 2
+
+project_name: memlint
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    # Only platforms CI actually tests. No windows binaries until windows is
+    # in the CI matrix — an untested artifact is a support burden, not a favor.
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/frankbesch/memlint/internal/cli.version={{ .Tag }}
+
+archives:
+  - files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^spec:"
+      - "^ci:"
+      - "^test:"
+
+release:
+  footer: |
+    ---
+    Install with `go install github.com/frankbesch/memlint@{{ .Tag }}`, or
+    download a binary above and verify it against `checksums.txt`.

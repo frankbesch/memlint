@@ -97,6 +97,46 @@ func TestExitCodes(t *testing.T) {
 	}
 }
 
+func TestVersionFlag(t *testing.T) {
+	got := run(t, nil, "--version")
+	if got.code != 0 {
+		t.Errorf("exited %d, want 0\nstderr:\n%s", got.code, got.stderr)
+	}
+	if got.stderr != "" {
+		t.Errorf("--version must leave stderr empty, got: %q", got.stderr)
+	}
+	// The exact version varies by how the binary was built: a VCS-stamped
+	// pseudo-version here, a module version under `go install`, "dev" when no
+	// build info survives. The contract is the shape, not the value.
+	lines := strings.Split(strings.TrimRight(got.stdout, "\n"), "\n")
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "memlint ") {
+		t.Errorf("want one line of the form \"memlint <version>\", got: %q", got.stdout)
+	}
+	if lines[0] == "memlint " {
+		t.Errorf("version must not be empty, got: %q", lines[0])
+	}
+}
+
+// Release binaries get their version through -ldflags -X. This build pins the
+// symbol name that .goreleaser.yaml points at: renaming cli.version breaks
+// this test before it silently breaks release builds.
+func TestVersionInjection(t *testing.T) {
+	injected := filepath.Join(t.TempDir(), "memlint")
+	build := exec.Command("go", "build",
+		"-ldflags", "-X github.com/frankbesch/memlint/internal/cli.version=v9.9.9-test",
+		"-o", injected, "github.com/frankbesch/memlint")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("building with -ldflags: %v\n%s", err, out)
+	}
+	out, err := exec.Command(injected, "--version").Output()
+	if err != nil {
+		t.Fatalf("running --version: %v", err)
+	}
+	if got := strings.TrimRight(string(out), "\n"); got != "memlint v9.9.9-test" {
+		t.Errorf("got %q, want %q", got, "memlint v9.9.9-test")
+	}
+}
+
 // A flag written after the path would otherwise be swallowed silently by the
 // standard flag package, so --strict would appear to work while doing nothing.
 func TestFlagAfterPathIsRefusedNotIgnored(t *testing.T) {

@@ -84,3 +84,20 @@ start docs/generated.md): acceptance becomes 7 red + 2 yellow.
 [human_brief] stays out of the static fixtures for the same reason as
 [append_only]: fixture files are committed by the repo's human author,
 so a hermetic violation cannot be expressed there.
+
+# --- v0.3 addendum: version + releases (approved 2026-08-10) ---
+
+`memlint --version` prints "memlint <version>" to stdout and exits 0.
+Top-level flag only, not a subcommand and not a `check` flag — the
+subcommand non-goal stands. Version resolution, in order: ldflags-injected
+value (release builds), module version from runtime/debug.ReadBuildInfo
+(`go install` builds and VCS-stamped local builds), then "dev" (builds
+where no version info survives). The injected form keeps the tag's
+leading "v" so all paths print the same shape.
+
+Releases: goreleaser, tag-triggered (v*). linux+darwin, amd64+arm64,
+CGO disabled, checksums published. --version ships in the same release
+as the first binaries: an unidentifiable binary is a support burden.
+The ldflags symbol is pinned by a test that builds with -X and asserts
+the output, so renaming the variable breaks tests before it breaks
+releases.

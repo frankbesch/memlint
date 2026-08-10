@@ -8,12 +8,33 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/frankbesch/memlint/internal/config"
 	"github.com/frankbesch/memlint/internal/lint"
 	"github.com/frankbesch/memlint/internal/report"
 	"golang.org/x/term"
 )
+
+// version is injected by release builds via
+// -ldflags "-X github.com/frankbesch/memlint/internal/cli.version=vX.Y.Z".
+// The symbol name is part of the release contract: .goreleaser.yaml points at
+// it, and a test builds with -X to pin it.
+var version = ""
+
+// Version resolves what "memlint --version" reports: the injected release
+// version, else the module version recorded by `go install`, else "dev".
+func Version() string {
+	if version != "" {
+		return version
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		if v := bi.Main.Version; v != "" && v != "(devel)" {
+			return v
+		}
+	}
+	return "dev"
+}
 
 // Exit codes. These are the tool's contract with CI.
 const (
@@ -30,6 +51,7 @@ const usageText = `memlint - invariant checker for file-based agent memory
 
 Usage:
   memlint check [flags] [path]
+  memlint --version
 
 Checks the invariants declared in <path>/.memlint.toml. Path defaults to ".".
 memlint is read-only: it reports drift and never repairs it.
@@ -59,6 +81,9 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		return runCheck(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
 		fmt.Fprint(stdout, usageText)
+		return ExitClean
+	case "--version":
+		fmt.Fprintln(stdout, "memlint "+Version())
 		return ExitClean
 	default:
 		fmt.Fprintf(stderr, "memlint: unknown command %q\n", args[0])

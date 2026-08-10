@@ -23,6 +23,11 @@ there is no `--fix` flag to add one.
 go install github.com/frankbesch/memlint@latest
 ```
 
+Or download a prebuilt binary for macOS or Linux from the
+[releases page](https://github.com/frankbesch/memlint/releases) and verify it
+against the release's `checksums.txt`. Either way, `memlint --version` tells
+you what you got.
+
 ## Quick start
 
 From the root of the repo your agent uses as memory:
@@ -88,6 +93,9 @@ memlint: clean (5 rules, 8 files checked)
 | `--format text\|json` | output format, default `text` |
 | `--no-color` | disable ANSI color (also honored: `NO_COLOR`) |
 | `-h`, `--help` | usage |
+
+`memlint --version` (top-level, before any command) prints the version and
+exits 0.
 
 Flags must come **before** the path. `memlint check . --strict` is refused with
 an error rather than silently ignoring `--strict`, which is what the standard
@@ -375,6 +383,12 @@ over-reporting or quietly stops reporting breaks it.
 
 memlint runs against itself. `.memlint.toml` at this repo's root enables only
 the rules that genuinely apply here.
+
+Releases are cut by tagging: push a `vX.Y.Z` tag and
+[release.yml](.github/workflows/release.yml) runs the full test suite, then
+goreleaser builds, checksums, and publishes binaries for the platforms CI
+tests. `goreleaser release --snapshot --clean --skip=publish` rehearses the
+whole pipeline locally without publishing anything.
 
 ## Roadmap
 
