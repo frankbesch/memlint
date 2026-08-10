@@ -63,6 +63,8 @@ config, and it is the only memlint command that writes a file.
 
 Flags (must precede [path]):
   --strict             treat YELLOW findings as failures
+  --base <ref>         compare [append_only] files against <ref> instead of
+                       HEAD (e.g. origin/main in pull-request CI)
   --format text|json|github
                        output format (default "text"); "github" emits
                        GitHub Actions annotations
@@ -109,6 +111,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	strict := fs.Bool("strict", false, "treat YELLOW findings as failures")
 	format := fs.String("format", "text", `output format: "text", "json", or "github"`)
 	noColor := fs.Bool("no-color", false, "disable ANSI color")
+	base := fs.String("base", "", "compare [append_only] files against this git ref instead of HEAD")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -152,6 +155,20 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "memlint: %v\n", err)
 		return ExitUsage
+	}
+	if *base != "" {
+		// --base is an explicit demand for a baseline. A demand that cannot be
+		// honored — or that nothing consumes — must refuse, not silently pass.
+		if cfg.AppendOnly == nil {
+			fmt.Fprintf(stderr, "memlint: --base has no effect: [append_only] is not enabled in %s\n",
+				filepath.Join(root, config.FileName))
+			return ExitUsage
+		}
+		if err := lint.ValidateBaseRef(root, *base); err != nil {
+			fmt.Fprintf(stderr, "memlint: %v\n", err)
+			return ExitUsage
+		}
+		cfg.AppendOnly.BaseRef = *base
 	}
 
 	absRoot, err := filepath.Abs(root)

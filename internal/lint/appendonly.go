@@ -18,14 +18,21 @@ const ruleAppendOnly = "append_only"
 const maxLineEcho = 120
 
 // checkAppendOnly verifies that each configured file still begins with the
-// content stored at HEAD.
+// content stored at the baseline ref -- HEAD by default, or --base <ref>.
 //
-// Scope, deliberately narrow in v0.1: this compares the git HEAD blob with the
-// working tree. It is a working-tree rewrite guard, not historical immutability
-// enforcement -- a rewrite that has already been committed becomes the new
-// baseline and passes. Comparing against the index, an arbitrary base ref, or a
-// pull request base is roadmap, not v0.1.
+// Default scope, deliberately narrow: comparing HEAD against the working tree
+// is a working-tree rewrite guard, not historical immutability enforcement --
+// a rewrite that has already been committed becomes the new baseline and
+// passes (and in a CI checkout the working tree IS HEAD, so the default can
+// never fire there). Passing --base with the pull request's base branch is
+// what turns this into a PR gate: a rewrite committed inside the PR diverges
+// from the base blob and is caught.
 func checkAppendOnly(r *runner, cfg *config.AppendOnly) {
+	ref := cfg.BaseRef
+	if ref == "" {
+		ref = "HEAD"
+	}
+
 	gitAvailable := true
 	if _, err := exec.LookPath("git"); err != nil {
 		gitAvailable = false
@@ -41,18 +48,18 @@ func checkAppendOnly(r *runner, cfg *config.AppendOnly) {
 			})
 			continue
 		}
-		checkAppendOnlyFile(r, rel)
+		checkAppendOnlyFile(r, rel, ref)
 	}
 }
 
-func checkAppendOnlyFile(r *runner, rel string) {
+func checkAppendOnlyFile(r *runner, rel, ref string) {
 	abs, ok := r.resolve(rel)
 	if !ok {
 		r.red(ruleAppendOnly, "append_only/escape", rel, "path escapes the repository root")
 		return
 	}
 
-	baseline, gitErr := gitShowHead(r.root, rel)
+	baseline, gitErr := gitShowRef(r.root, ref, rel)
 	if gitErr != nil {
 		// No baseline is not a violation. It means the invariant could not be
 		// established, which the spec assigns YELLOW: an unversioned file has
@@ -68,7 +75,8 @@ func checkAppendOnlyFile(r *runner, rel string) {
 	current, err := os.ReadFile(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
-			r.red(ruleAppendOnly, "append_only/missing", rel, "file exists at HEAD but is missing from the working tree")
+			r.red(ruleAppendOnly, "append_only/missing", rel, fmt.Sprintf(
+				"file exists at %s but is missing from the working tree", ref))
 			return
 		}
 		r.cannotVerify(ruleAppendOnly, rel, err)
@@ -83,7 +91,7 @@ func checkAppendOnlyFile(r *runner, rel string) {
 	line, was, now := firstDivergentLine(baseline, current)
 	r.add(Finding{
 		Rule: ruleAppendOnly, Code: "append_only/rewritten", Severity: SeverityRed, Path: rel, Line: line,
-		Message: "append-only violation: content committed at HEAD was modified",
+		Message: fmt.Sprintf("append-only violation: content committed at %s was modified", ref),
 		Detail:  fmt.Sprintf("was: %s\nnow: %s", was, now),
 	})
 }
@@ -104,11 +112,27 @@ func hasAppendOnlyPrefix(current, baseline []byte) bool {
 	return bytes.HasPrefix(current, bytes.TrimSuffix(baseline, []byte("\n")))
 }
 
-// gitShowHead reads <file> as committed at HEAD. The HEAD:./<path> form
+// ValidateBaseRef reports whether ref resolves to a commit in root's
+// repository. The CLI calls this at startup when --base is given: an explicit
+// baseline demand that cannot be honored is a usage error, not a finding.
+func ValidateBaseRef(root, ref string) error {
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("cannot resolve --base %s: git executable not found in PATH", ref)
+	}
+	cmd := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", ref+"^{commit}")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("cannot resolve --base %s: %s", ref, gitErrorReason(stderr.String(), err))
+	}
+	return nil
+}
+
+// gitShowRef reads <file> as committed at ref. The <ref>:./<path> form
 // resolves the path relative to -C, which is what makes this work when the
 // memlint root is a subdirectory of a larger repository.
-func gitShowHead(root, rel string) ([]byte, error) {
-	spec := "HEAD:./" + filepath.ToSlash(rel)
+func gitShowRef(root, ref, rel string) ([]byte, error) {
+	spec := ref + ":./" + filepath.ToSlash(rel)
 	cmd := exec.Command("git", "-C", root, "show", spec)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

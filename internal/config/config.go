@@ -35,9 +35,17 @@ type Mirrors struct {
 	Pairs [][]string `toml:"pairs"`
 }
 
-// AppendOnly requires each file to still begin with its HEAD baseline.
+// AppendOnly requires each file to still begin with its baseline: the content
+// committed at BaseRef, or HEAD when no base was given.
 type AppendOnly struct {
 	Files []string `toml:"files"`
+
+	// BaseRef is runtime state, not configuration: the CLI sets it from
+	// --base after Load. It is deliberately not a TOML key — the right
+	// baseline is invocation-specific (HEAD locally, the base branch in PR
+	// CI), and a config would hard-code one context's answer into every
+	// context. Empty means HEAD.
+	BaseRef string `toml:"-"`
 }
 
 // Blocks requires each file to contain exactly one well-formed ownership

@@ -14,6 +14,11 @@ func runAppendOnly(root string, files ...string) Result {
 	return Run(root, &config.Config{AppendOnly: &config.AppendOnly{Files: files}})
 }
 
+// runAppendOnlyBase is runAppendOnly with an explicit --base ref.
+func runAppendOnlyBase(root, base string, files ...string) Result {
+	return Run(root, &config.Config{AppendOnly: &config.AppendOnly{Files: files, BaseRef: base}})
+}
+
 func requireGit(t *testing.T) {
 	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
@@ -176,10 +181,10 @@ func TestAppendOnlyRootInsideLargerRepo(t *testing.T) {
 }
 
 // TestAppendOnlyCommittedRewriteIsInvisible documents the exact scope of the
-// v0.1 rule: it compares the git HEAD blob against the working tree, so it is a
-// working-tree rewrite guard, NOT historical immutability enforcement. Once a
-// rewrite is committed it becomes the new baseline and this rule goes quiet.
-// Catching that requires comparing against a base ref, which is roadmap.
+// DEFAULT rule: it compares the git HEAD blob against the working tree, so it
+// is a working-tree rewrite guard, NOT historical immutability enforcement.
+// Once a rewrite is committed it becomes the new baseline and this rule goes
+// quiet. Catching that is what --base is for; see the tests below.
 func TestAppendOnlyCommittedRewriteIsInvisible(t *testing.T) {
 	requireGit(t)
 	root := newRepo(t, map[string]string{"memory/decisions.md": baseline})
@@ -193,4 +198,71 @@ func TestAppendOnlyCommittedRewriteIsInvisible(t *testing.T) {
 	git(t, root, "-c", "commit.gpgsign=false", "commit", "-q", "-m", "rewrite history")
 
 	wantCounts(t, runAppendOnly(root, "memory/decisions.md"), 0, 0)
+}
+
+// commit stages and commits everything in dir, mirroring how newRepo commits.
+func commit(t *testing.T, dir, msg string) {
+	t.Helper()
+	git(t, dir, "add", "-A")
+	git(t, dir, "-c", "commit.gpgsign=false", "commit", "-q", "-m", msg)
+}
+
+// The point of --base: a rewrite that is already COMMITTED — invisible to the
+// default HEAD comparison, and to any CI checkout — diverges from the base
+// branch's blob and is caught. This is the pull-request-gate scenario.
+func TestAppendOnlyBaseRefCatchesCommittedRewrite(t *testing.T) {
+	requireGit(t)
+	root := newRepo(t, map[string]string{"memory/decisions.md": baseline})
+	git(t, root, "branch", "base")
+
+	writeFile(t, root, "memory/decisions.md", "# Decisions\n\n- D-001: rewritten\n")
+	commit(t, root, "rewrite, committed like a PR would")
+
+	// Default scope stays quiet — that limitation is pinned above.
+	wantCounts(t, runAppendOnly(root, "memory/decisions.md"), 0, 0)
+
+	res := runAppendOnlyBase(root, "base", "memory/decisions.md")
+	wantCounts(t, res, 1, 0)
+	wantMessage(t, res, "append-only violation: content committed at base was modified")
+}
+
+func TestAppendOnlyBaseRefCommittedAppendPasses(t *testing.T) {
+	requireGit(t)
+	root := newRepo(t, map[string]string{"memory/decisions.md": baseline})
+	git(t, root, "branch", "base")
+
+	writeFile(t, root, "memory/decisions.md", baseline+"- D-002: appended in the PR\n")
+	commit(t, root, "append, committed")
+
+	wantCounts(t, runAppendOnlyBase(root, "base", "memory/decisions.md"), 0, 0)
+}
+
+// A file created after the base ref has no baseline there — nothing to have
+// diverged from — so it is YELLOW, exactly like an untracked file under HEAD.
+func TestAppendOnlyBaseRefNewFileIsYellow(t *testing.T) {
+	requireGit(t)
+	root := newRepo(t, map[string]string{"memory/decisions.md": baseline})
+	git(t, root, "branch", "base")
+
+	writeFile(t, root, "memory/new-log.md", "born after base\n")
+	commit(t, root, "new file")
+
+	res := runAppendOnlyBase(root, "base", "memory/new-log.md")
+	wantCounts(t, res, 0, 1)
+	wantMessage(t, res, "no git baseline")
+}
+
+func TestValidateBaseRef(t *testing.T) {
+	requireGit(t)
+	root := newRepo(t, map[string]string{"memory/decisions.md": baseline})
+
+	if err := ValidateBaseRef(root, "main"); err != nil {
+		t.Errorf("existing branch should validate, got: %v", err)
+	}
+	if err := ValidateBaseRef(root, "no-such-ref"); err == nil {
+		t.Error("unknown ref must be rejected")
+	}
+	if err := ValidateBaseRef(t.TempDir(), "main"); err == nil {
+		t.Error("a directory that is not a git repository must be rejected")
+	}
 }

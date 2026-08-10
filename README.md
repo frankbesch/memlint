@@ -98,6 +98,7 @@ memlint: clean (5 rules, 8 files checked)
 | Flag | Effect |
 |------|--------|
 | `--strict` | YELLOW findings also fail the run |
+| `--base <ref>` | compare `[append_only]` files against `<ref>` instead of `HEAD` |
 | `--format text\|json\|github` | output format, default `text`; `github` emits GitHub Actions annotations |
 | `--no-color` | disable ANSI color (also honored: `NO_COLOR`) |
 | `-h`, `--help` | usage |
@@ -210,12 +211,27 @@ Each pair is two files or two directories.
 Verifies that the working-tree file still **begins with** the content committed
 at git `HEAD`. A violation reports the first divergent line as `was:` / `now:`.
 
-**Scope, precisely:** this compares `HEAD` against the working tree. It is a
-working-tree rewrite guard, **not historical immutability enforcement**. Once a
-rewrite is committed it becomes the new baseline and this rule goes quiet. Note
-what that means for CI: a CI checkout's working tree *is* HEAD, so in CI this
-rule always passes — it guards local, uncommitted state. A base-ref comparison
-that turns it into a pull-request gate is on the roadmap. See
+**Scope, precisely:** by default this compares `HEAD` against the working
+tree. It is a working-tree rewrite guard, **not historical immutability
+enforcement**. Once a rewrite is committed it becomes the new baseline and the
+default goes quiet — and a CI checkout's working tree *is* HEAD, so the
+default can never fire in CI at all.
+
+`--base <ref>` is what closes that gap: it swaps the baseline from `HEAD` to
+any commit `git rev-parse` accepts. In pull-request CI, `--base origin/main`
+catches a rewrite that was committed inside the PR, because the PR's files
+must still begin with what the base branch holds:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0   # --base needs the base branch's history in the checkout
+- run: memlint check --format github --strict --base origin/main .
+```
+
+`--base` refuses loudly rather than degrading: an unresolvable ref, a missing
+`git`, or a config with no `[append_only]` section is exit 2 at startup — an
+explicit baseline demand that cannot be honored must never silently pass. See
 [internal/lint/appendonly_test.go](internal/lint/appendonly_test.go), which
 tests that limitation explicitly rather than leaving it implied.
 
@@ -426,9 +442,6 @@ whole pipeline locally without publishing anything.
 
 - **Anchor-aware pointers** — check the base file of `notes.md#section`, and
   eventually the anchor itself.
-- **Richer append-only baselines** — compare against the index, an arbitrary
-  base ref, or a pull request's merge base, so a *committed* rewrite is caught
-  too.
 - **Recursive `**` globs.**
 - **Machine-readable rule docs**, so a finding can link to its own explanation.
 - **Rename-aware `[human_brief]`** — follow a brief across renames instead of

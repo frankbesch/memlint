@@ -332,6 +332,85 @@ func TestUsageErrorsGoToStderr(t *testing.T) {
 	}
 }
 
+// gitCLI runs git for CLI-level tests, isolated from the developer's config.
+func gitCLI(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(os.Environ(),
+		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_CONFIG_SYSTEM=/dev/null",
+		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.invalid",
+		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.invalid",
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+// The full PR-gate journey through the real binary: a committed rewrite is
+// invisible to a default check but exits 1 under --base.
+func TestBaseFlag(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	dir := t.TempDir()
+	writeF := func(rel, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Two lines, and the rewrite alters the first: extending the LAST line is
+	// admitted by the trailing-newline tolerance and would not be a violation.
+	writeF(".memlint.toml", "[append_only]\nfiles = [\"decisions.md\"]\n")
+	writeF("decisions.md", "- D-001\n- D-002\n")
+	gitCLI(t, dir, "init", "-q", "-b", "main")
+	gitCLI(t, dir, "add", "-A")
+	gitCLI(t, dir, "-c", "commit.gpgsign=false", "commit", "-q", "-m", "baseline")
+	gitCLI(t, dir, "branch", "base")
+	writeF("decisions.md", "- D-999\n- D-002\n")
+	gitCLI(t, dir, "add", "-A")
+	gitCLI(t, dir, "-c", "commit.gpgsign=false", "commit", "-q", "-m", "rewrite")
+
+	if got := run(t, nil, "check", dir); got.code != 0 {
+		t.Errorf("default check should be blind to the committed rewrite, exited %d:\n%s",
+			got.code, got.stdout)
+	}
+	got := run(t, nil, "check", "--base", "base", dir)
+	if got.code != 1 {
+		t.Errorf("--base check exited %d, want 1\nstdout:\n%s\nstderr:\n%s",
+			got.code, got.stdout, got.stderr)
+	}
+	if !strings.Contains(got.stdout, "content committed at base was modified") {
+		t.Errorf("finding should name the base ref:\n%s", got.stdout)
+	}
+
+	// An unresolvable ref is a startup refusal, not a finding.
+	got = run(t, nil, "check", "--base", "no-such-ref", dir)
+	if got.code != 2 {
+		t.Errorf("bad ref exited %d, want 2", got.code)
+	}
+	if !strings.Contains(got.stderr, "no-such-ref") {
+		t.Errorf("stderr should name the bad ref, got: %q", got.stderr)
+	}
+}
+
+// --base with no [append_only] section is a demand nothing consumes. Passing
+// silently would let CI believe a gate exists that does not.
+func TestBaseFlagRequiresAppendOnly(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".memlint.toml"),
+		[]byte("[junk]\nglobs = [\".DS_Store\"]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := run(t, nil, "check", "--base", "main", dir)
+	if got.code != 2 {
+		t.Errorf("exited %d, want 2", got.code)
+	}
+	if !strings.Contains(got.stderr, "--base has no effect") {
+		t.Errorf("stderr should explain the refusal, got: %q", got.stderr)
+	}
+}
+
 // init on a repo with evidence must produce a config that check can run
 // immediately — and that surfaces the evidence it was built from.
 func TestInitGeneratesWorkingConfig(t *testing.T) {

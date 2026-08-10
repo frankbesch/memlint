@@ -144,3 +144,28 @@ file write, creating one new file; check remains strictly read-only.
 Add — Homebrew tap: goreleaser brews block publishing to
 frankbesch/homebrew-tap. Prerequisites (manual, before next tag): create
 the tap repo, add a TAP_GITHUB_TOKEN secret with write access to it.
+
+# --- v0.5 addendum: base-ref append_only (approved 2026-08-10) ---
+
+`memlint check --base <ref> [path]` makes [append_only] compare each file
+against <ref> instead of HEAD, turning the rule into a pull-request gate:
+with --base origin/main, a rewrite committed inside the PR is caught even
+though the CI working tree equals the PR's HEAD. The baseline source is a
+flag, not a TOML key, because it is invocation-specific — local runs want
+HEAD, PR CI wants the base branch — and a config would hard-code one
+context's answer into every context.
+
+Semantics: <ref> is anything `git rev-parse --verify <ref>^{commit}`
+accepts (branch, tag, SHA, merge-base output). Same prefix rule, same
+trailing-newline tolerance, same YELLOW when the file has no baseline at
+<ref> (a file created after the base has nothing to have diverged from).
+Only [append_only] consumes the flag; [human_brief] already scans full
+history.
+
+Failure posture, stricter than the default: --base is an explicit demand
+for a baseline, so failure to honor it is exit 2 at startup, not a
+finding — an unresolvable ref, git missing, or --base given while
+[append_only] is not enabled in the config (a flag that silently does
+nothing is the failure mode this tool exists to refuse). Default behavior
+without --base is unchanged (HEAD, working-tree guard, committed rewrite
+goes quiet — still pinned by test).
