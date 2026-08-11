@@ -2,7 +2,9 @@ package lint
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 
@@ -14,10 +16,16 @@ const rulePointers = "pointers"
 // Ref is a repo-path-like reference extracted from a document.
 type Ref struct {
 	// Raw is the reference exactly as written, after surrounding markdown
-	// punctuation is trimmed.
+	// punctuation is trimmed. For anchored references it keeps the #anchor.
 	Raw string
-	// Target is Raw normalized to a cleaned, slash-separated path.
+	// Target is the base path — Raw with any anchor removed — normalized to a
+	// cleaned, slash-separated form. Existence checks run against Target, so a
+	// bare ref and an anchored ref to the same file deduplicate to one.
 	Target string
+	// Anchor is the fragment after "#", without the "#". Empty for bare refs.
+	// The anchor is carried for display only; whether the anchor itself
+	// resolves is not yet checked (pointers/dead-anchor is reserved).
+	Anchor string
 	// Line is the 1-based line of the reference's first occurrence.
 	Line int
 }
@@ -36,11 +44,13 @@ const (
 	trimLeading  = "`\"'“”‘’([{"
 	trimTrailing = "`\"'“”‘’)]}.,;:!"
 
-	// rejectChars marks a candidate as not-a-path. It covers the spec's skips
-	// (< > for placeholders, # for anchors) plus markdown syntax that survived
+	// rejectChars marks a candidate's base path as not-a-path. It covers the
+	// spec's skips (< > for placeholders) plus markdown syntax that survived
 	// tokenization and glob metacharacters, which are placeholders for a set of
-	// files rather than a reference to one.
-	rejectChars = "[]()`\"'*?<>#|"
+	// files rather than a reference to one. "#" is absent since v0.6: a single
+	// anchor splits off before this check, and more than one is rejected
+	// explicitly.
+	rejectChars = "[]()`\"'*?<>|"
 )
 
 // ExtractRefs pulls repo-path-like references out of a document, deduplicated
@@ -57,12 +67,13 @@ func ExtractRefs(src string) []Ref {
 
 	for i, line := range strings.Split(src, "\n") {
 		for _, cand := range lineCandidates(line) {
-			raw, target, ok := normalizeCandidate(cand)
-			if !ok || seen[target] {
+			ref, ok := normalizeCandidate(cand)
+			if !ok || seen[ref.Target] {
 				continue
 			}
-			seen[target] = true
-			refs = append(refs, Ref{Raw: raw, Target: target, Line: i + 1})
+			seen[ref.Target] = true
+			ref.Line = i + 1
+			refs = append(refs, ref)
 		}
 	}
 	return refs
@@ -161,39 +172,56 @@ func isSpaceByte(b byte) bool {
 }
 
 // normalizeCandidate trims markdown punctuation and applies every skip rule,
-// returning the trimmed reference and its cleaned target.
-func normalizeCandidate(c candidate) (raw, target string, ok bool) {
-	raw = strings.TrimRight(strings.TrimLeft(c.text, trimLeading), trimTrailing)
-	if raw == "" || !strings.Contains(raw, "/") {
-		return "", "", false
+// returning the reference with its cleaned base-path target.
+//
+// A single "#" splits the candidate into base + anchor, and every filter below
+// then applies to the base: an anchored reference to a real file is a claim
+// about that file, and the base is what can be checked today. More than one
+// "#" is not a path+anchor and is rejected outright, as before v0.6.
+func normalizeCandidate(c candidate) (ref Ref, ok bool) {
+	raw := strings.TrimRight(strings.TrimLeft(c.text, trimLeading), trimTrailing)
+	base, anchor := raw, ""
+	if i := strings.Index(raw, "#"); i >= 0 {
+		if strings.Count(raw, "#") > 1 {
+			return Ref{}, false
+		}
+		base, anchor = raw[:i], raw[i+1:]
 	}
-	if strings.Contains(raw, "://") {
-		return "", "", false
+	if base == "" || !strings.Contains(base, "/") {
+		return Ref{}, false
 	}
-	if strings.ContainsAny(raw, rejectChars) {
-		return "", "", false
+	if strings.Contains(base, "://") {
+		return Ref{}, false
 	}
-	if strings.Contains(raw, "YYYY") {
-		return "", "", false
+	if strings.ContainsAny(base, rejectChars) {
+		return Ref{}, false
 	}
-	if strings.IndexFunc(raw, func(r rune) bool { return r == ' ' || r == '\t' }) >= 0 {
-		return "", "", false
+	if strings.Contains(base, "YYYY") {
+		return Ref{}, false
 	}
-	if strings.HasPrefix(raw, "/") {
-		return "", "", false
+	if strings.IndexFunc(base, func(r rune) bool { return r == ' ' || r == '\t' }) >= 0 {
+		return Ref{}, false
 	}
-	target = config.CleanRel(raw)
+	if strings.HasPrefix(base, "/") {
+		return Ref{}, false
+	}
+	target := config.CleanRel(base)
 	if target == "." || target == ".." || strings.HasPrefix(target, "../") {
-		return "", "", false
+		return Ref{}, false
 	}
-	return raw, target, true
+	return Ref{Raw: raw, Target: target, Anchor: anchor}, true
 }
 
 // checkPointers verifies that every checkable reference in the configured
 // files resolves to something that exists.
+//
+// A files entry with glob metacharacters is expanded against root-relative
+// paths only, never basenames — a source list is a statement about specific
+// files, and basename matching would silently widen it. A glob matching
+// nothing is YELLOW for the same reason a stale [tokens] watch glob is:
+// declared coverage that silently never runs.
 func checkPointers(r *runner, cfg *config.Pointers) {
-	for _, f := range cfg.Files {
-		rel := config.CleanRel(f)
+	for _, rel := range pointerSources(r, cfg.Files) {
 		abs, ok := r.resolve(rel)
 		if !ok {
 			r.red(rulePointers, "pointers/escape", rel, "pointer source escapes the repository root")
@@ -220,10 +248,14 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 			}
 			if _, err := os.Stat(targetAbs); err != nil {
 				if os.IsNotExist(err) {
+					msg := fmt.Sprintf("dead reference: %s does not exist", ref.Target)
+					if ref.Anchor != "" {
+						msg += fmt.Sprintf(" (referenced as %s)", ref.Raw)
+					}
 					r.add(Finding{
 						Rule: rulePointers, Code: "pointers/dead-ref", Severity: SeverityRed, Path: rel,
 						RelatedPath: ref.Target, Line: ref.Line,
-						Message: fmt.Sprintf("dead reference: %s does not exist", ref.Target),
+						Message: msg,
 					})
 				} else {
 					r.cannotVerify(rulePointers, rel, err)
@@ -231,4 +263,56 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 			}
 		}
 	}
+}
+
+// pointerSources resolves the configured files list — literals kept as-is,
+// globs expanded by a walk — into a deduplicated list of source paths.
+// Zero-match globs are reported here; a missing literal is reported by the
+// caller's read, so that the two failure shapes keep their severities:
+// a named file that is gone is RED, a pattern that matches nothing is YELLOW.
+func pointerSources(r *runner, files []string) []string {
+	var sources []string
+	seen := map[string]bool{}
+	var globs []string
+	for _, f := range files {
+		if config.IsGlob(f) {
+			globs = append(globs, f)
+			continue
+		}
+		rel := config.CleanRel(f)
+		if !seen[rel] {
+			seen[rel] = true
+			sources = append(sources, rel)
+		}
+	}
+	if len(globs) == 0 {
+		return sources
+	}
+
+	matched := make(map[string]bool, len(globs))
+	r.walk(rulePointers, func(rel string, d fs.DirEntry) error {
+		if d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		for _, g := range globs {
+			if ok, err := path.Match(g, rel); err == nil && ok {
+				matched[g] = true
+				if !seen[rel] {
+					seen[rel] = true
+					sources = append(sources, rel)
+				}
+			}
+		}
+		return nil
+	})
+	for _, g := range globs {
+		if !matched[g] {
+			r.add(Finding{
+				Rule: rulePointers, Code: "pointers/no-match", Severity: SeverityYellow, Path: g,
+				Message: "files glob matched no files",
+				Detail:  "a stale source glob is pointer coverage that silently never runs",
+			})
+		}
+	}
+	return sources
 }

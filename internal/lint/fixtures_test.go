@@ -23,12 +23,12 @@ func runFixture(t *testing.T, name string) Result {
 	return Run(root, cfg)
 }
 
-// The acceptance criterion: fixture-broken has exactly seven planted RED
-// defects and two planted YELLOW ones. The count is the test -- if a rule
+// The acceptance criterion: fixture-broken has exactly eight planted RED
+// defects and four planted YELLOW ones. The count is the test -- if a rule
 // starts over-reporting or silently stops reporting, this fails.
 func TestFixtureBroken(t *testing.T) {
 	res := runFixture(t, "fixture-broken")
-	wantCounts(t, res, 7, 3)
+	wantCounts(t, res, 8, 4)
 
 	want := []struct{ rule, path, message string }{
 		{"blocks", "AGENTS.md", "unterminated"},
@@ -38,6 +38,8 @@ func TestFixtureBroken(t *testing.T) {
 		{"mirrors", "sync/left/b.md", "missing from sync/right"},
 		{"pointers", "memory/index.md", "dead reference: memory/missing.md"},
 		{"pointers", "memory/index.md", "dead reference: docs/nope.md"},
+		{"pointers", "memory/index.md", "dead reference: memory/gone-anchored.md does not exist (referenced as memory/gone-anchored.md#section)"},
+		{"pointers", "notes/*.md", "files glob matched no files"},
 		{"junk", "notes/scratch.tmp", `junk file matches "*.tmp"`},
 		{"tokens", "memory/big.md", "estimated tokens exceeds budget"},
 		{"tokens", "notes/missing/*.md", "watch glob matched no files"},
@@ -51,9 +53,11 @@ func TestFixtureBroken(t *testing.T) {
 }
 
 // Every reference form the fixture plants as a non-finding must stay silent.
-// The load-bearing one is memory/gone-anchored.md#section: that target exists
-// nowhere and is referenced nowhere else, so if anchor-skipping regresses to
-// strip-and-check, this file gains a sixth RED and TestFixtureBroken fails.
+// Load-bearing since v0.6 made anchors checkable: memory/multi-hash.md#a#b
+// (more than one "#" is not a path+anchor) and the URL with a fragment —
+// neither target exists, so a skip regression over-reports here.
+// memory/missing.md#section pins dedup with its bare form: exactly one
+// missing.md finding, which TestFixtureBroken's exact counts already enforce.
 func TestFixtureBrokenSkipsAreNotReported(t *testing.T) {
 	res := runFixture(t, "fixture-broken")
 	for _, f := range res.Findings {
@@ -61,7 +65,7 @@ func TestFixtureBrokenSkipsAreNotReported(t *testing.T) {
 			"reading/daily",
 			"example.com",
 			"reviews/",
-			"gone-anchored",
+			"multi-hash",
 			"memory/existing.md",
 		} {
 			if strings.Contains(f.Message, skipped) || strings.Contains(f.RelatedPath, skipped) {

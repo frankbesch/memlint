@@ -151,6 +151,18 @@ roots = ["memory/notes"]`, "single path segment"},
 		{"duplicate root", `[pointers]
 files = ["a.md"]
 roots = ["memory", "memory"]`, "duplicate root"},
+		{"recursive glob in pointer files", `[pointers]
+files = ["memory/**/*.md"]
+roots = ["memory"]`, "not supported"},
+		{"invalid glob in pointer files", `[pointers]
+files = ["[unclosed"]
+roots = ["memory"]`, "invalid glob"},
+		{"duplicate glob in pointer files", `[pointers]
+files = ["memory/*.md", "memory/*.md"]
+roots = ["memory"]`, "duplicate entry"},
+		{"absolute literal in pointer files", `[pointers]
+files = ["/memory/index.md"]
+roots = ["memory"]`, "must be relative"},
 	}
 
 	for _, tt := range tests {

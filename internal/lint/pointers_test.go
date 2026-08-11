@@ -31,7 +31,15 @@ func TestExtractRefs(t *testing.T) {
 		// --- spec-mandated skips ---
 		{"SPEC: url is skipped", "see https://example.com/notes", nil},
 		{"SPEC: placeholder is skipped", "`reviews/YYYY-MM-DD-<topic>.html`", nil},
-		{"anchored ref is skipped entirely in v0.1", "`memory/gone.md#section`", nil},
+
+		// --- anchors (checkable since v0.6) ---
+		{"anchored ref yields its base path", "`memory/gone.md#section`", []string{"memory/gone.md"}},
+		{"empty anchor still yields the base", "`memory/gone.md#`", []string{"memory/gone.md"}},
+		{"anchored and bare dedup to one target", "`memory/gone.md#a` and `memory/gone.md`", []string{"memory/gone.md"}},
+		{"more than one # is not a path+anchor", "`memory/gone.md#a#b`", nil},
+		{"bare fragment has no slash", "see #section for details", nil},
+		{"url with fragment is still a url", "https://example.com/notes#section", nil},
+		{"anchor after a placeholder base is still skipped", "`memory/<name>.md#x`", nil},
 
 		// --- other skips ---
 		{"no slash is not a path", "see CLAUDE.md for context", nil},
@@ -108,11 +116,11 @@ func TestCheckableRefs(t *testing.T) {
 			want:  nil,
 		},
 		{
-			// Roots include "memory", so only the anchor rule can skip this.
-			name:  "anchored ref skipped even when its root is listed",
+			// Roots gate the BASE path: the anchor plays no part in the filter.
+			name:  "anchored ref is checkable by its base's root",
 			src:   "see `memory/gone.md#section`",
 			roots: []string{"memory"},
-			want:  nil,
+			want:  []string{"memory/gone.md"},
 		},
 		{
 			name:  "a listed root with an unlisted one alongside it",
@@ -204,6 +212,76 @@ func TestPointersRule(t *testing.T) {
 		})
 		res := Run(root, &config.Config{Pointers: &config.Pointers{
 			Files: []string{"memory/index.md"}, Roots: []string{"memory"},
+		}})
+		wantCounts(t, res, 1, 0)
+	})
+
+	t.Run("anchored dead base is red and names the anchored form", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/index.md": "see `memory/gone.md#plan`\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"memory/index.md"}, Roots: []string{"memory"},
+		}})
+		wantCounts(t, res, 1, 0)
+		wantMessage(t, res, "dead reference: memory/gone.md does not exist (referenced as memory/gone.md#plan)")
+	})
+
+	t.Run("anchored ref to a live base is silent", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/index.md": "see `memory/live.md#plan`\n",
+			"memory/live.md":  "here\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"memory/index.md"}, Roots: []string{"memory"},
+		}})
+		wantCounts(t, res, 0, 0)
+	})
+
+	t.Run("files glob expands to every matching source", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/a.md": "`memory/dead-one.md`\n",
+			"memory/b.md": "`memory/dead-two.md`\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"memory/*.md"}, Roots: []string{"memory"},
+		}})
+		wantCounts(t, res, 2, 0)
+		wantMessage(t, res, "dead reference: memory/dead-one.md")
+		wantMessage(t, res, "dead reference: memory/dead-two.md")
+	})
+
+	t.Run("glob matches the relative path, never the basename", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"nested/index.md": "`memory/dead.md`\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"*.md"}, Roots: []string{"memory"},
+		}})
+		// "*.md" names root-level markdown only: the nested file must not
+		// satisfy it by basename, so the glob matches nothing (yellow) and the
+		// nested file's dead reference is never scanned.
+		wantCounts(t, res, 0, 1)
+		wantMessage(t, res, "files glob matched no files")
+	})
+
+	t.Run("files glob matching nothing is yellow", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/index.md": "clean\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"memory/index.md", "notes/*.md"}, Roots: []string{"memory"},
+		}})
+		wantCounts(t, res, 0, 1)
+		wantMessage(t, res, "files glob matched no files")
+	})
+
+	t.Run("glob and literal covering the same file scan it once", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/index.md": "`memory/dead.md`\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"memory/index.md", "memory/*.md"}, Roots: []string{"memory"},
 		}})
 		wantCounts(t, res, 1, 0)
 	})

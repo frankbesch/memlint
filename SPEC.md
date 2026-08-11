@@ -169,3 +169,38 @@ finding — an unresolvable ref, git missing, or --base given while
 nothing is the failure mode this tool exists to refuse). Default behavior
 without --base is unchanged (HEAD, working-tree guard, committed rewrite
 goes quiet — still pinned by test).
+
+# --- v0.6 addendum: pointers grow up (approved 2026-08-11) ---
+
+Anchor-aware [pointers]. A candidate containing exactly one "#" splits
+into base path + anchor. The base must independently survive every
+existing filter — contains "/", no URL (://), no other reject characters,
+no YYYY, no whitespace, no root escape — and the roots filter applies to
+the base. The base is checked for existence: dead base = RED
+pointers/dead-ref (unchanged code), with the anchored form shown in the
+message. Deduplication is by base path, so a bare ref and an anchored ref
+to the same file report once. Candidates with more than one "#", bare
+"#anchor" fragments (no slash), and URLs with fragments stay skipped. The
+anchor itself is NOT yet validated — pointers/dead-anchor is reserved for
+when it is. This un-skips references that have been invisible since v0.1:
+a repo that was clean can turn red, which is the point of the change.
+
+Glob support in [pointers] files. An entry containing glob metacharacters
+(* ? [) is a glob, matched against the root-relative path only, never the
+basename — a source list is a statement about specific files, and
+basename matching would silently widen it (the [tokens] watch rationale
+verbatim). ** stays rejected until recursive globs ship (roadmap). Each
+matched file is scanned as a pointer source, deduplicated against literal
+entries. A glob matching nothing = YELLOW pointers/no-match (the v0.4
+tokens/no-match rationale: declared coverage that silently never runs).
+A missing literal entry stays RED pointers/missing-source.
+
+[tokens] needs nothing here: watch is already glob-based; its
+coverage-narrowing fix is recursion, which is the separate ** roadmap
+item. Ruled 2026-08-11.
+
+Fixture ripple: fixture-broken's memory/gone-anchored.md#section flips
+from must-not-report guard to planted defect; its [pointers] files gains
+a zero-match glob. Acceptance becomes 8 red + 4 yellow. New guards pin
+what still must NOT be reported: multi-"#" candidates and URL fragments.
+fixture-clean gains a resolving anchored ref and a matching files glob.

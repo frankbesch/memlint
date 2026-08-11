@@ -40,7 +40,7 @@ jobs:
 
       # The fixtures are the acceptance contract: exact finding counts and
       # exact exit codes. A rule that over-reports or goes quiet fails here.
-      - name: acceptance — broken fixture exits 1 with 7 red, 3 yellow
+      - name: acceptance — broken fixture exits 1 with 8 red, 4 yellow
         run: |
           set +e
           out=$(./memlint check --no-color testdata/fixture-broken)
@@ -48,7 +48,7 @@ jobs:
           set -e
           echo "$out"
           [ "$code" -eq 1 ]
-          echo "$out" | tail -1 | grep -qx "memlint: 7 red, 3 yellow"
+          echo "$out" | tail -1 | grep -qx "memlint: 8 red, 4 yellow"
 
       - name: acceptance — clean fixture exits 0
         run: |

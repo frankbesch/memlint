@@ -1,4 +1,4 @@
-# Fixture with seven planted RED defects and three planted YELLOW defects.
+# Fixture with eight planted RED defects and four planted YELLOW defects.
 # See README.md in this directory for the inventory.
 #
 # [append_only] is deliberately absent: a committed fixture file always equals
@@ -19,8 +19,11 @@ files = ["AGENTS.md", "docs/generated.md"]
 start = "<!-- AGENT:START -->"
 end = "<!-- AGENT:END -->"
 
+# The second files entry is a glob that deliberately matches nothing: a
+# stale source glob is pointer coverage that silently never runs, and must
+# be reported, not skipped — the same posture as the [tokens] watch glob.
 [pointers]
-files = ["memory/index.md"]
+files = ["memory/index.md", "notes/*.md"]
 roots = ["memory", "docs"]
 
 [junk]

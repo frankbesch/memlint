@@ -64,7 +64,9 @@ type HumanBrief struct {
 }
 
 // Pointers checks repo-path-like references found in Files, but only when the
-// reference's first path segment appears in Roots.
+// reference's first path segment appears in Roots. A Files entry containing
+// glob metacharacters is a pattern matched against root-relative paths; the
+// rest are literal paths.
 type Pointers struct {
 	Files []string `toml:"files"`
 	Roots []string `toml:"roots"`
@@ -256,7 +258,7 @@ func (p *Pointers) validate() error {
 	if len(p.Files) == 0 || len(p.Roots) == 0 {
 		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files and roots")
 	}
-	if err := validRelPathList("files", p.Files); err != nil {
+	if err := validMixedPathList("files", p.Files); err != nil {
 		return err
 	}
 	seen := map[string]bool{}
@@ -298,6 +300,36 @@ func (t *Tokens) validate() error {
 	return nil
 }
 
+// IsGlob reports whether a configured entry is a pattern rather than a
+// literal path. The metacharacter set is filepath.Match's.
+func IsGlob(s string) bool {
+	return strings.ContainsAny(s, "*?[")
+}
+
+// validMixedPathList accepts a list where each entry is either a literal
+// relative path or a glob, applying the matching validation to each.
+func validMixedPathList(field string, entries []string) error {
+	seen := map[string]bool{}
+	for i, e := range entries {
+		key := e
+		if IsGlob(e) {
+			if err := validGlob(e); err != nil {
+				return fmt.Errorf("%s[%d]: %w", field, i, err)
+			}
+		} else {
+			if err := validRelPath(e); err != nil {
+				return fmt.Errorf("%s[%d]: %w", field, i, err)
+			}
+			key = CleanRel(e)
+		}
+		if seen[key] {
+			return fmt.Errorf("%s[%d]: duplicate entry %q", field, i, key)
+		}
+		seen[key] = true
+	}
+	return nil
+}
+
 func validRelPathList(field string, paths []string) error {
 	seen := map[string]bool{}
 	for i, p := range paths {
@@ -331,18 +363,26 @@ func validRelPath(p string) error {
 func validGlobList(field string, globs []string) error {
 	seen := map[string]bool{}
 	for i, g := range globs {
-		switch {
-		case g == "":
-			return fmt.Errorf("%s[%d]: must not be empty", field, i)
-		case strings.Contains(g, "**"):
-			return fmt.Errorf("%s[%d]: recursive ** globs are not supported yet: %q", field, i, g)
-		case seen[g]:
+		if err := validGlob(g); err != nil {
+			return fmt.Errorf("%s[%d]: %w", field, i, err)
+		}
+		if seen[g] {
 			return fmt.Errorf("%s[%d]: duplicate glob %q", field, i, g)
 		}
-		if _, err := filepath.Match(g, "probe"); err != nil {
-			return fmt.Errorf("%s[%d]: invalid glob %q: %w", field, i, g, err)
-		}
 		seen[g] = true
+	}
+	return nil
+}
+
+func validGlob(g string) error {
+	switch {
+	case g == "":
+		return fmt.Errorf("must not be empty")
+	case strings.Contains(g, "**"):
+		return fmt.Errorf("recursive ** globs are not supported yet: %q", g)
+	}
+	if _, err := filepath.Match(g, "probe"); err != nil {
+		return fmt.Errorf("invalid glob %q: %w", g, err)
 	}
 	return nil
 }

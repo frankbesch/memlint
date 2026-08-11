@@ -12,8 +12,10 @@ files = ["AGENTS.md"]
 start = "<!-- AGENT:START -->"
 end = "<!-- AGENT:END -->"
 
+# The glob entry exercises glob expansion in files: it must match
+# memory/index.md and produce no findings.
 [pointers]
-files = ["memory/index.md"]
+files = ["memory/*.md"]
 roots = ["memory", "docs"]
 
 [junk]

@@ -80,11 +80,14 @@ mirrors   RED     sync/left/b.md       present in sync/left but missing from syn
     counterpart: sync/right/b.md
 pointers  RED     memory/index.md:7    dead reference: memory/missing.md does not exist
 pointers  RED     memory/index.md:8    dead reference: docs/nope.md does not exist
+pointers  RED     memory/index.md:9    dead reference: memory/gone-anchored.md does not exist (referenced as memory/gone-anchored.md#section)
 junk      YELLOW  notes/scratch.tmp    junk file matches "*.tmp"
+pointers  YELLOW  notes/*.md           files glob matched no files
+    a stale source glob is pointer coverage that silently never runs
 tokens    YELLOW  memory/big.md        420 estimated tokens exceeds budget of 200
 tokens    YELLOW  notes/missing/*.md   watch glob matched no files
     a stale watch glob is a budget check that silently never runs
-memlint: 7 red, 3 yellow
+memlint: 8 red, 4 yellow
 ```
 
 A clean repository prints one line:
@@ -326,20 +329,29 @@ That is the whole gate: `memory/notes.md` with `roots = ["memory"]` is memlint's
 responsibility, while `reading/daily` is not, because you never told memlint
 that `reading` exists.
 
+Anchored references — `memory/notes.md#section` — are checkable since v0.6:
+the reference splits at a single `#` and the **base file** is what must exist.
+Every skip rule and the roots gate apply to the base, an anchored and a bare
+reference to the same file deduplicate to one finding, and whether the anchor
+itself resolves to a heading is not yet checked. More than one `#` is not a
+path+anchor and is skipped whole.
+
+A `files` entry containing glob metacharacters (`*`, `?`, `[`) is a pattern
+matched against the root-relative path — never the basename, for the same
+reason as `[tokens]` watch globs: a source list is a statement about specific
+files. A glob matching nothing is **YELLOW** (`pointers/no-match`), a declared
+coverage that silently never runs; a missing *literal* entry stays **RED**.
+
 Skipped entirely:
 
 | Form | Example |
 |------|---------|
-| URLs | `https://example.com/notes` |
+| URLs, with or without fragments | `https://example.com/notes#top` |
 | Date placeholders | `reviews/YYYY-MM-DD-report.html` |
 | Angle-bracket placeholders | `memory/<name>.md` |
-| Anchors | `memory/notes.md#section` |
+| Multiple `#` | `memory/notes.md#a#b` |
 | Globs | `memory/*.md` |
 | Anything escaping the root | `/etc/passwd`, `../outside.md` |
-
-Anchored references are skipped **whole** in v0.1, rather than having the
-fragment stripped and the base file checked. That is the conservative reading,
-and changing it is a contract change, not a bug fix — see the roadmap.
 
 Each dead target is reported once per source file, at the line of its first
 occurrence. Source files are read whole, so a reference on a line longer than
@@ -419,13 +431,13 @@ asked to perform and still reports clean is worse than one that fails loudly.
 ```bash
 go test ./...
 go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 7 red, 3 yellow, exit 1
+./memlint check --no-color testdata/fixture-broken   # 8 red, 4 yellow, exit 1
 ./memlint check --no-color testdata/fixture-clean    # clean, exit 0
 ./memlint check --no-color testdata/fixture-yellow   # yellow only, exit 0
 ```
 
-[testdata/fixture-broken](testdata/fixture-broken) carries seven planted RED
-defects and three planted YELLOW ones, plus every reference form that must **not**
+[testdata/fixture-broken](testdata/fixture-broken) carries eight planted RED
+defects and four planted YELLOW ones, plus every reference form that must **not**
 be reported. The counts are the acceptance test: a rule that starts
 over-reporting or quietly stops reporting breaks it.
 
@@ -442,19 +454,20 @@ whole pipeline locally without publishing anything.
 
 In priority order:
 
-1. **Pointers grow up** — anchor-aware checking (`notes.md#section` checks the
-   base file, eventually the anchor itself) and glob support in `files` for
-   `[pointers]` and `[tokens]`, so coverage does not silently narrow as a repo
-   adds files. Both are contract changes to currently-documented behavior.
-2. **Self-describing findings** — each finding links to its own explanation
+1. **Self-describing findings** — each finding links to its own explanation
    (docs anchor in text output, `doc_url` alongside `code` in JSON). The
-   stable finding codes shipped in v0.4.0 are the hook. Open design question:
-   a `memlint explain <rule>` subcommand would be the best UX but conflicts
-   with the standing subcommand restraint — resolving that is a spec decision,
-   not a code decision.
-3. **Recursive `**` globs.**
+   stable finding codes shipped in v0.4.0 are the hook. Ruled: no `explain`
+   subcommand — the subcommand restraint stands; links carry the weight.
+2. **Recursive `**` globs** — also what lets `[tokens]` watch and `[pointers]`
+   files cover nested trees without enumerating them.
+3. **`[blocks]` content mirroring** — an opt-in extension requiring the
+   content *between* marker spans to stay equal across configured file pairs,
+   for repos that keep the same agent-owned block in more than one file.
 4. **Rename-aware `[human_brief]`** — follow a brief across renames instead of
    treating pre-rename history as a different file.
+
+Shipped from this list: anchor-aware `[pointers]` checking and glob support in
+`[pointers]` files (v0.6).
 
 Shipped from earlier roadmaps: `memlint init` (v0.4.0), base-ref
 `[append_only]` via `--base` (v0.5.0).
