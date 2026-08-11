@@ -45,8 +45,14 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 
 	for i, f := range res.Findings {
 		sev := c(severityColor(f.Severity), pad(string(f.Severity), 6))
+		msg := f.Message
+		// The bracketed code makes each finding self-describing: it is the key
+		// into docs/findings.md, whose URL closes the report.
+		if f.Code != "" {
+			msg += " " + c(ansiDim, "["+f.Code+"]")
+		}
 		line := fmt.Sprintf("%s  %s  %s  %s",
-			pad(f.Rule, ruleWidth), sev, pad(locs[i], locWidth), f.Message)
+			pad(f.Rule, ruleWidth), sev, pad(locs[i], locWidth), msg)
 		if _, err := fmt.Fprintln(w, strings.TrimRight(line, " ")); err != nil {
 			return err
 		}
@@ -65,6 +71,12 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 				return err
 			}
 		}
+	}
+
+	// The docs line precedes the summary so that the summary stays the final
+	// line — scripts that read it with tail -1 keep working.
+	if _, err := fmt.Fprintln(w, c(ansiDim, "docs: "+DocBase)); err != nil {
+		return err
 	}
 
 	red, yellow := res.Red(), res.Yellow()

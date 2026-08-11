@@ -66,27 +66,28 @@ rules declared there, and writes findings to stdout.
 Real output, from `memlint check --no-color testdata/fixture-broken`:
 
 ```text
-blocks    RED     AGENTS.md:3          ownership block unterminated: start marker has no end marker
+blocks    RED     AGENTS.md:3          ownership block unterminated: start marker has no end marker [blocks/unterminated]
     expected "<!-- AGENT:END -->" after it
-blocks    RED     docs/generated.md:7  ownership block malformed: duplicate start marker
+blocks    RED     docs/generated.md:7  ownership block malformed: duplicate start marker [blocks/duplicate-start]
     first start marker is on line 3
-mirrors   RED     CLAUDE.md            mirrored files differ at byte 115 (line 4, col 19)
+mirrors   RED     CLAUDE.md            mirrored files differ at byte 115 (line 4, col 19) [mirrors/differ]
     counterpart: docs/CLAUDE.md
     CLAUDE.md is 261 bytes, docs/CLAUDE.md is 258 bytes
-mirrors   RED     sync/left/a.md       mirrored files differ at byte 90 (line 4, col 11)
+mirrors   RED     sync/left/a.md       mirrored files differ at byte 90 (line 4, col 11) [mirrors/differ]
     counterpart: sync/right/a.md
     sync/left/a.md is 115 bytes, sync/right/a.md is 116 bytes
-mirrors   RED     sync/left/b.md       present in sync/left but missing from sync/right
+mirrors   RED     sync/left/b.md       present in sync/left but missing from sync/right [mirrors/one-sided]
     counterpart: sync/right/b.md
-pointers  RED     memory/index.md:7    dead reference: memory/missing.md does not exist
-pointers  RED     memory/index.md:8    dead reference: docs/nope.md does not exist
-pointers  RED     memory/index.md:9    dead reference: memory/gone-anchored.md does not exist (referenced as memory/gone-anchored.md#section)
-junk      YELLOW  notes/scratch.tmp    junk file matches "*.tmp"
-pointers  YELLOW  notes/*.md           files glob matched no files
+pointers  RED     memory/index.md:7    dead reference: memory/missing.md does not exist [pointers/dead-ref]
+pointers  RED     memory/index.md:8    dead reference: docs/nope.md does not exist [pointers/dead-ref]
+pointers  RED     memory/index.md:9    dead reference: memory/gone-anchored.md does not exist (referenced as memory/gone-anchored.md#section) [pointers/dead-ref]
+junk      YELLOW  notes/scratch.tmp    junk file matches "*.tmp" [junk/match]
+pointers  YELLOW  notes/*.md           files glob matched no files [pointers/no-match]
     a stale source glob is pointer coverage that silently never runs
-tokens    YELLOW  memory/big.md        420 estimated tokens exceeds budget of 200
-tokens    YELLOW  notes/missing/*.md   watch glob matched no files
+tokens    YELLOW  memory/big.md        420 estimated tokens exceeds budget of 200 [tokens/over-budget]
+tokens    YELLOW  notes/missing/*.md   watch glob matched no files [tokens/no-match]
     a stale watch glob is a budget check that silently never runs
+docs: https://github.com/frankbesch/memlint/blob/main/docs/findings.md
 memlint: 8 red, 4 yellow
 ```
 
@@ -140,7 +141,10 @@ request diff — `::error` for RED, `::warning` for YELLOW:
 Every finding carries a stable machine code (`pointers/dead-ref`,
 `blocks/unterminated`, `tokens/no-match`, ...) used as the annotation title
 and present in JSON output. Messages may be reworded between releases; codes
-may not.
+may not. Each code is documented in [docs/findings.md](docs/findings.md) —
+what it means and what to do about it. Text output prints the code in
+brackets after each message, JSON carries the link as `doc_url`, and a test
+fails the build if a code ships without a docs entry.
 
 ## Configuration
 
@@ -409,7 +413,8 @@ deterministic order:
       "path": "memory/index.md",
       "related_path": "memory/missing.md",
       "line": 7,
-      "message": "dead reference: memory/missing.md does not exist"
+      "message": "dead reference: memory/missing.md does not exist",
+      "doc_url": "https://github.com/frankbesch/memlint/blob/main/docs/findings.md#pointersdead-ref"
     }
   ],
   "summary": {
@@ -454,20 +459,18 @@ whole pipeline locally without publishing anything.
 
 In priority order:
 
-1. **Self-describing findings** — each finding links to its own explanation
-   (docs anchor in text output, `doc_url` alongside `code` in JSON). The
-   stable finding codes shipped in v0.4.0 are the hook. Ruled: no `explain`
-   subcommand — the subcommand restraint stands; links carry the weight.
-2. **Recursive `**` globs** — also what lets `[tokens]` watch and `[pointers]`
+1. **Recursive `**` globs** — also what lets `[tokens]` watch and `[pointers]`
    files cover nested trees without enumerating them.
-3. **`[blocks]` content mirroring** — an opt-in extension requiring the
+2. **`[blocks]` content mirroring** — an opt-in extension requiring the
    content *between* marker spans to stay equal across configured file pairs,
    for repos that keep the same agent-owned block in more than one file.
-4. **Rename-aware `[human_brief]`** — follow a brief across renames instead of
+3. **Rename-aware `[human_brief]`** — follow a brief across renames instead of
    treating pre-rename history as a different file.
 
-Shipped from this list: anchor-aware `[pointers]` checking and glob support in
-`[pointers]` files (v0.6).
+Shipped from this list: anchor-aware `[pointers]` checking and glob support
+in `[pointers]` files (v0.6); self-describing findings — every code documented
+in [docs/findings.md](docs/findings.md), linked from text output and as
+`doc_url` in JSON, with no `explain` subcommand by ruling (v0.7).
 
 Shipped from earlier roadmaps: `memlint init` (v0.4.0), base-ref
 `[append_only]` via `--base` (v0.5.0).

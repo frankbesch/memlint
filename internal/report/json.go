@@ -12,9 +12,17 @@ import (
 const SchemaVersion = 1
 
 type jsonOutput struct {
-	SchemaVersion int            `json:"schema_version"`
-	Findings      []lint.Finding `json:"findings"`
-	Summary       jsonSummary    `json:"summary"`
+	SchemaVersion int           `json:"schema_version"`
+	Findings      []jsonFinding `json:"findings"`
+	Summary       jsonSummary   `json:"summary"`
+}
+
+// jsonFinding decorates a finding with its documentation link. doc_url is
+// derived at render time rather than stored on the finding: it is a property
+// of the report, not of the invariant.
+type jsonFinding struct {
+	lint.Finding
+	DocURL string `json:"doc_url"`
 }
 
 type jsonSummary struct {
@@ -25,10 +33,10 @@ type jsonSummary struct {
 // JSON writes the result as a stable, never-colored JSON document. Findings
 // arrive pre-sorted, so output is byte-identical across runs.
 func JSON(w io.Writer, res lint.Result) error {
-	findings := res.Findings
-	if findings == nil {
-		// Encode an empty list rather than null, so consumers can index it.
-		findings = []lint.Finding{}
+	// Build an empty list rather than null, so consumers can index it.
+	findings := make([]jsonFinding, 0, len(res.Findings))
+	for _, f := range res.Findings {
+		findings = append(findings, jsonFinding{Finding: f, DocURL: DocURL(f.Code)})
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

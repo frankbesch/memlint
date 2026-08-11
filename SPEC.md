@@ -204,3 +204,31 @@ from must-not-report guard to planted defect; its [pointers] files gains
 a zero-match glob. Acceptance becomes 8 red + 4 yellow. New guards pin
 what still must NOT be reported: multi-"#" candidates and URL fragments.
 fixture-clean gains a resolving anchored ref and a matching files glob.
+
+# --- v0.7 addendum: self-describing findings (approved 2026-08-11) ---
+
+Every finding links to its own explanation, keyed by the stable codes
+v0.4 introduced. No explain subcommand: the subcommand restraint stands
+(ruled 2026-08-11); links carry the weight.
+
+docs/findings.md: one "## <code>" heading per static finding code with
+severity, what the finding means, and what to do about it. The dynamic
+<rule>/unverifiable family shares one "## unverifiable" section. A test
+scans the lint package source for code literals and fails when one lacks
+a heading, so a new code cannot ship undocumented.
+
+JSON: each finding gains doc_url alongside code — the docs/findings.md
+URL on the repository's main branch plus the heading anchor derived from
+the code (GitHub's anchor rule strips the slash; the unverifiable family
+maps to #unverifiable). Additive, schema_version stays 1. doc_url is
+derived at render time, not stored on the finding: it is a property of
+the report, not of the invariant.
+
+Text output: each finding line carries its bracketed code after the
+message ("... does not exist [pointers/dead-ref]"), and a run with
+findings prints one dimmed "docs:" line immediately BEFORE the summary.
+The summary stays the final line, so CI's tail -1 contract is unchanged.
+This deliberately supersedes v0.4's "text output is unchanged": the
+codes existed but were invisible exactly where humans read findings.
+--format github is unchanged: annotations already carry the code in
+their title, and workflow commands have no link field.
