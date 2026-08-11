@@ -1,159 +1,196 @@
 # Finding codes
 
 Every memlint finding carries a stable machine code, `<rule>/<kind>`. This
-page is the code's home: what each one means and what to do about it. JSON
-output links here via `doc_url`; text output prints the code in brackets
-after each message.
+page is the code's home. Each entry opens with a plain-English line — what
+happened and what to do — followed by the exact mechanics for readers who
+want them. JSON output links here via `doc_url`; text output prints the code
+in brackets after each message.
 
 Codes are stable: messages may be reworded, codes may not. Additions are
 non-breaking; renaming or removing one bumps the JSON `schema_version`.
 
 ## unverifiable
 
-**RED** · any rule. The rule was asked to check this path and could not —
-an unreadable file, a permission error, a failed walk. Unverifiable is
-deliberately a failure, never a skip: a checker that stays quiet about a
-check it could not run would report clean without meaning it. Fix the
-underlying I/O problem, or remove the path from the rule's configuration
-if it should not be checked.
+**RED** · any rule. memlint was asked to check this file and physically
+could not — usually a permission or disk problem. It reports that instead of
+guessing. Fix the underlying problem, or stop listing the path.
 
+Unverifiable is deliberately a failure, never a skip: a checker that stays
+quiet about a check it could not run would report clean without meaning it.
 Every rule emits its own spelling (`mirrors/unverifiable`,
 `pointers/unverifiable`, …); they all mean this.
 
 ## mirrors/differ
 
-**RED**. The two sides of a configured pair are not byte-identical. The
-finding names the first differing byte and its line/column. Decide which
-side is canonical and copy it over the other — memlint never autofixes.
+**RED** · Two files that must stay identical copies have drifted apart.
+Decide which one is right and copy it over the other.
+
+Comparison is byte-wise; the finding names the first differing byte with its
+line and column, plus both file sizes. memlint never autofixes.
 
 ## mirrors/one-sided
 
-**RED**. In a directory pair, a markdown file exists on one side with no
-counterpart on the other. Create or delete the counterpart deliberately.
+**RED** · A file exists in one mirrored folder but not in its twin. Create
+or delete the counterpart — deliberately.
+
+Directory pairs compare their `*.md` membership; each unmatched member is
+reported from the side it exists on.
 
 ## mirrors/missing
 
-**RED**. A configured mirror endpoint does not exist at all. Restore the
-file or remove the pair from `[mirrors]`.
+**RED** · Something listed in `[mirrors]` does not exist at all. Restore it
+or remove the pair from the config.
 
 ## mirrors/kind-mismatch
 
-**RED**. One endpoint is a file and the other a directory. The pair as
-configured can never be compared; fix the paths.
+**RED** · One side of the pair is a file and the other is a folder, so they
+can never be compared. Fix the configured paths.
 
 ## mirrors/escape
 
-**RED**. A configured endpoint resolves outside the repository root
-(lexically or through a symlink). Mirrors only operate inside the tree.
+**RED** · A configured path points outside the repository, where memlint
+refuses to follow.
+
+The escape can be lexical (`../`, absolute) or through a symlink; every rule
+refuses both.
 
 ## append_only/rewritten
 
-**RED**. The baseline content (at `HEAD`, or at `--base <ref>` when
-given) is no longer a prefix of the working copy: something edited or
-deleted committed history in a file declared append-only. The finding
-reports the first divergent line as was/now. Restore the original span
-and re-append what you meant to add.
+**RED** · A file that is only supposed to grow had older content edited or
+deleted. Restore the original text, then re-append what you meant to add.
+
+The committed baseline — `HEAD`, or `--base <ref>` when given — must remain
+a prefix of the working copy (trailing-newline tolerant). The finding shows
+the first divergent line as was/now.
 
 ## append_only/missing
 
-**RED**. A file declared append-only does not exist in the working tree.
+**RED** · A file declared append-only is gone from the working tree.
 
 ## append_only/escape
 
-**RED**. The configured path resolves outside the repository root.
+**RED** · The configured path points outside the repository, where memlint
+refuses to follow.
 
 ## append_only/no-baseline
 
-**YELLOW**. There is nothing to compare against: no git repository, or
-the file has no committed baseline at the chosen ref. The invariant was
-not violated — it could not be established. Commit the file, or pass a
-`--base` the file exists at.
+**YELLOW** · There is no committed version to compare against yet, so this
+file was not checked either way. Commit it to arm the check.
+
+No git repository, or no blob at the chosen ref (a file created after
+`--base` has nothing to have diverged from). YELLOW because the invariant
+could not be established — not because it held.
 
 ## blocks/no-markers
 
-**RED**. A file declared to carry an ownership block contains neither
-marker. Add the block, or remove the file from `[blocks]`.
+**RED** · The file is supposed to contain a marked agent-owned block, but
+neither marker is present. Add the block, or stop listing the file.
 
 ## blocks/unterminated
 
-**RED**. A start marker with no end marker after it.
+**RED** · An agent-owned block opens but never closes. Add the end marker.
 
 ## blocks/end-without-start
 
-**RED**. An end marker with no start marker before it.
+**RED** · An agent-owned block closes without ever opening. Add the start
+marker, or remove the stray end marker.
 
 ## blocks/end-before-start
 
-**RED**. Both markers present, in the wrong order.
+**RED** · The block's close marker appears above its open marker. Reorder
+them.
 
 ## blocks/duplicate-start
 
-**RED**. More than one start marker; the block's extent is ambiguous.
+**RED** · The open marker appears more than once, so where the block starts
+is ambiguous. Remove the extra.
 
 ## blocks/duplicate-end
 
-**RED**. More than one end marker; the block's extent is ambiguous.
+**RED** · The close marker appears more than once, so where the block ends
+is ambiguous. Remove the extra.
 
 ## blocks/missing
 
-**RED**. A file declared to carry an ownership block does not exist.
+**RED** · A file declared to carry an ownership block does not exist.
 
 ## blocks/escape
 
-**RED**. The configured path resolves outside the repository root.
+**RED** · The configured path points outside the repository, where memlint
+refuses to follow.
 
 ## human_brief/agent-commit
 
-**RED**. The file's git history contains a commit authored — or
-co-authored via a `Co-Authored-By:` trailer — by a configured agent
-identity. The finding names the most recent offending commit and counts
-the earlier ones. History cannot be un-written by editing the working
-tree; deciding what to do about it (rewrite, re-create the file, accept
-and remove the rule) is a human call.
+**RED** · A file that must stay human-written has an AI-authored commit in
+its history. What to do about that — rewrite history, recreate the file,
+or accept it and drop the rule — is a human call; editing the working tree
+cannot clear it.
+
+Both the commit author and every `Co-Authored-By:` trailer are checked
+against the configured identities, by name or email, case-insensitive and
+exact. The finding names the most recent offending commit and counts the
+earlier ones.
 
 ## human_brief/no-baseline
 
-**YELLOW**. No git repository, no commits, or no commit touches this
-file: authorship could not be established either way.
+**YELLOW** · There is no git history to inspect, so authorship could not be
+verified either way.
+
+No repository, no commits, or no commit touches this file.
 
 ## human_brief/escape
 
-**RED**. The configured path resolves outside the repository root.
+**RED** · The configured path points outside the repository, where memlint
+refuses to follow.
 
 ## pointers/dead-ref
 
-**RED**. A reference extracted from a pointer source names a path that
-does not exist. For anchored references (`memory/notes.md#section`) the
-base file is what was checked. Fix the reference or restore the target.
+**RED** · One of your notes references a file that does not exist. Fix the
+reference, or bring the file back.
+
+References are extracted from inline code spans, markdown link destinations,
+and bare tokens, then checked when their first path segment is in `roots`.
+For anchored references (`memory/notes.md#section`) the base file is what
+was checked. Reported once per source file, at the first occurrence.
 
 ## pointers/missing-source
 
-**RED**. A literal `files` entry — a file declared to be scanned for
-references — does not exist. A named file that is gone is an error, not
-a skip.
+**RED** · A file memlint was told to scan for references is itself missing.
+
+A literal `files` entry that is gone is an error, not a skip — unlike a
+glob, which reports `pointers/no-match` instead.
 
 ## pointers/no-match
 
-**YELLOW**. A `files` glob matched nothing. A stale source glob is
-pointer coverage that silently never runs — rename it to match reality
-or remove it.
+**YELLOW** · A `files` pattern matches nothing, so the coverage it declares
+never runs. Rename it to match reality, or remove it.
+
+Globs match root-relative paths only, never basenames.
 
 ## pointers/escape
 
-**RED**. A configured source path resolves outside the repository root.
+**RED** · A configured source path points outside the repository, where
+memlint refuses to follow.
 
 ## junk/match
 
-**YELLOW**. A file or directory matches a configured junk glob. Delete
-it, or narrow the glob if the match is intentional.
+**YELLOW** · A file matches your "should not be here" list — a `.DS_Store`,
+a `*.tmp`. Delete it, or narrow the glob if the match is intentional.
+
+Junk globs match both the basename and the root-relative path; a matching
+directory is reported once, then skipped.
 
 ## tokens/over-budget
 
-**YELLOW**. A watched file's estimated token count (one token per four
-runes, rounded up — an estimate, not a tokenizer) exceeds the budget.
-Split or prune the file, or raise the budget deliberately.
+**YELLOW** · A watched note has grown past its size budget. Trim it, split
+it, or raise the budget on purpose.
+
+The estimate is one token per four runes, rounded up — an approximation,
+reported as one; memlint does not run a tokenizer.
 
 ## tokens/no-match
 
-**YELLOW**. A watch glob matched nothing. A stale watch glob is a budget
-check that silently never runs — rename it to match reality or remove it.
+**YELLOW** · A watch pattern matches nothing, so the budget check it
+declares never runs. Rename it to match reality, or remove it.
+
+Watch globs match root-relative paths only, never basenames.
