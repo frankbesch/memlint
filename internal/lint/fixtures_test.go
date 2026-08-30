@@ -23,12 +23,12 @@ func runFixture(t *testing.T, name string) Result {
 	return Run(root, cfg)
 }
 
-// The acceptance criterion: fixture-broken has exactly eight planted RED
+// The acceptance criterion: fixture-broken has exactly nine planted RED
 // defects and four planted YELLOW ones. The count is the test -- if a rule
 // starts over-reporting or silently stops reporting, this fails.
 func TestFixtureBroken(t *testing.T) {
 	res := runFixture(t, "fixture-broken")
-	wantCounts(t, res, 8, 4)
+	wantCounts(t, res, 9, 4)
 
 	want := []struct{ rule, path, message string }{
 		{"blocks", "AGENTS.md", "unterminated"},
@@ -41,7 +41,8 @@ func TestFixtureBroken(t *testing.T) {
 		{"pointers", "memory/index.md", "dead reference: memory/gone-anchored.md does not exist (referenced as memory/gone-anchored.md#section)"},
 		{"pointers", "notes/*.md", "files glob matched no files"},
 		{"junk", "notes/scratch.tmp", `junk file matches "*.tmp"`},
-		{"tokens", "memory/big.md", "estimated tokens exceeds budget"},
+		{"tokens", "memory/big.md", "estimated tokens exceeds hard limit"},
+		{"tokens", "memory/medium.md", "estimated tokens exceeds budget"},
 		{"tokens", "notes/missing/*.md", "watch glob matched no files"},
 	}
 	for _, w := range want {

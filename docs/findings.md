@@ -183,10 +183,20 @@ directory is reported once, then skipped.
 ## tokens/over-budget
 
 **YELLOW** · A watched note has grown past its size budget. Trim it, split
-it, or raise the budget on purpose.
+it, or raise the budget on purpose. When `limit` is also set, this is the
+soft tier of two — the early warning, not the gate.
 
 The estimate is one token per four runes, rounded up — an approximation,
 reported as one; memlint does not run a tokenizer.
+
+## tokens/over-limit
+
+**RED** · A watched note has grown past its hard token limit — the tier
+above the budget. Trim it or split it now; raising `limit` should be a
+deliberate recalibration, not a reflex.
+
+Set `limit` well above `budget` so the yellow band gives real warning
+time. A file over both tiers reports once, at this severity.
 
 ## tokens/no-match
 

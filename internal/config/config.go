@@ -77,10 +77,14 @@ type Junk struct {
 	Globs []string `toml:"globs"`
 }
 
-// Tokens reports watched files whose estimated token count exceeds Budget.
+// Tokens reports watched files whose estimated token count exceeds Budget
+// (YELLOW) and, when Limit is set, files past Limit (RED). Limit is the
+// optional hard tier: zero or absent disables it, and a set Limit must be
+// greater than Budget or the yellow band between the tiers would be empty.
 type Tokens struct {
 	Watch  []string `toml:"watch"`
 	Budget int      `toml:"budget"`
+	Limit  int      `toml:"limit"`
 }
 
 // RuleCount reports how many rules are enabled. Zero is valid: every rule is
@@ -296,6 +300,9 @@ func (t *Tokens) validate() error {
 	}
 	if t.Budget <= 0 {
 		return fmt.Errorf("budget: must be a positive number of tokens, got %d", t.Budget)
+	}
+	if t.Limit != 0 && t.Limit <= t.Budget {
+		return fmt.Errorf("limit: must be greater than budget (%d) when set, got %d", t.Budget, t.Limit)
 	}
 	return nil
 }

@@ -1,7 +1,7 @@
 # fixture-broken
 
 A deliberately broken agent-memory repository. `memlint check` must report
-exactly **8 RED** and **4 YELLOW** findings here, and exit 1.
+exactly **9 RED** and **4 YELLOW** findings here, and exit 1.
 
 | # | Severity | Rule | Planted defect |
 |---|----------|----------|----------------|
@@ -13,10 +13,11 @@ exactly **8 RED** and **4 YELLOW** findings here, and exit 1.
 | 6 | RED | pointers | `memory/missing.md` does not exist |
 | 7 | RED | pointers | `docs/nope.md` does not exist |
 | 8 | RED | pointers | `memory/gone-anchored.md#section` — the base file does not exist |
-| 9 | YELLOW | pointers | files glob `notes/*.md` matches no files |
-| 10 | YELLOW | junk | `notes/scratch.tmp` matches `*.tmp` |
-| 11 | YELLOW | tokens | `memory/big.md` exceeds the 200-token budget |
-| 12 | YELLOW | tokens | watch glob `notes/missing/*.md` matches no files |
+| 9 | RED | tokens | `memory/big.md` exceeds the 400-token hard limit |
+| 10 | YELLOW | pointers | files glob `notes/*.md` matches no files |
+| 11 | YELLOW | junk | `notes/scratch.tmp` matches `*.tmp` |
+| 12 | YELLOW | tokens | `memory/medium.md` exceeds the 200-token budget (under the limit) |
+| 13 | YELLOW | tokens | watch glob `notes/missing/*.md` matches no files |
 
 `memory/index.md` also carries every reference form that must **not** produce
 a finding. Two are load-bearing since v0.6 made anchored references checkable:

@@ -98,6 +98,14 @@ budget = 0`, "positive"},
 		{"negative budget", `[tokens]
 watch = ["a.md"]
 budget = -1`, "positive"},
+		{"limit at budget", `[tokens]
+watch = ["a.md"]
+budget = 10
+limit = 10`, "greater than budget"},
+		{"limit below budget", `[tokens]
+watch = ["a.md"]
+budget = 10
+limit = 5`, "greater than budget"},
 
 		{"invalid glob", `[junk]
 globs = ["[unclosed"]`, "invalid glob"},

@@ -84,11 +84,12 @@ pointers  RED     memory/index.md:9    dead reference: memory/gone-anchored.md d
 junk      YELLOW  notes/scratch.tmp    junk file matches "*.tmp" [junk/match]
 pointers  YELLOW  notes/*.md           files glob matched no files [pointers/no-match]
     a stale source glob is pointer coverage that silently never runs
-tokens    YELLOW  memory/big.md        420 estimated tokens exceeds budget of 200 [tokens/over-budget]
+tokens    RED     memory/big.md        420 estimated tokens exceeds hard limit of 400 (budget 200) [tokens/over-limit]
+tokens    YELLOW  memory/medium.md     250 estimated tokens exceeds budget of 200 [tokens/over-budget]
 tokens    YELLOW  notes/missing/*.md   watch glob matched no files [tokens/no-match]
     a stale watch glob is a budget check that silently never runs
 docs: https://github.com/frankbesch/memlint/blob/main/docs/findings.md
-memlint: 8 red, 4 yellow
+memlint: 9 red, 4 yellow
 ```
 
 A clean repository prints one line:
@@ -201,7 +202,7 @@ mistaken for verification.
 | [`[human_brief]`](#human_brief--files-agents-must-never-write--red) | files no agent may ever have written | RED |
 | [`[pointers]`](#pointers--references-that-must-resolve--red) | references that must resolve | RED |
 | [`[junk]`](#junk--files-that-should-not-be-there--yellow) | files that should not be there | YELLOW |
-| [`[tokens]`](#tokens--notes-that-got-too-expensive--yellow) | notes that outgrew their token budget | YELLOW |
+| [`[tokens]`](#tokens--notes-that-got-too-expensive--yellow--red) | notes that outgrew their token budget | YELLOW / RED |
 
 ### `[mirrors]` — files that must stay identical · RED
 
@@ -368,11 +369,28 @@ Each glob is matched against both the basename and the root-relative path, so
 `.DS_Store` catches every one of them and `scratch/*` catches a directory's
 contents. A matching directory is reported once and then pruned.
 
-### `[tokens]` — notes that got too expensive · YELLOW
+### `[tokens]` — notes that got too expensive · YELLOW / RED
 
 Estimates one token per four characters, rounded up, counting **runes** rather
 than bytes so multibyte content is not overcounted several times over. This is
 an estimate and reports itself as one; memlint does not run a tokenizer.
+
+An optional `limit` adds a hard tier above the budget: past `budget` is
+YELLOW (`tokens/over-budget`), past `limit` is RED (`tokens/over-limit`).
+A file over both tiers reports once, at the worse severity. A set `limit`
+must be greater than `budget` — otherwise the yellow band between the
+tiers would be empty — and leaving it unset keeps the single-tier
+behavior. The budget is the early warning you act on at leisure; the
+limit is the line that fails the run even without `--strict`. A soft
+tier that is permanently over goes signal-dead — that is what the hard
+tier is for.
+
+```toml
+[tokens]
+watch = ["memory/*.md"]
+budget = 2000
+limit = 4000   # optional: past this is RED, not YELLOW
+```
 
 Unlike `[junk]`, watch globs match the root-relative path **only**, never the
 basename. A budget is a statement about specific files, and letting `CLAUDE.md`

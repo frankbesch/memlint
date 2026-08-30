@@ -59,6 +59,55 @@ func TestTokensBudgetBoundary(t *testing.T) {
 	})
 }
 
+// The limit is the optional hard tier above the budget: between the tiers is
+// YELLOW as before, past the limit is RED. Both boundaries are inclusive — a
+// file exactly at the limit is over budget but not over limit — and a file
+// over both tiers gets one finding, the worse one.
+func TestTokensLimitTier(t *testing.T) {
+	const budget, limit = 10, 20
+	run := func(root string) Result {
+		return Run(root, &config.Config{Tokens: &config.Tokens{
+			Watch: []string{"memory/*.md"}, Budget: budget, Limit: limit}})
+	}
+
+	t.Run("between budget and limit stays yellow", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/a.md": strings.Repeat("x", 15*4),
+		})
+		res := run(root)
+		wantCounts(t, res, 0, 1)
+		wantMessage(t, res, "15 estimated tokens exceeds budget of 10")
+	})
+
+	t.Run("exactly at limit stays yellow", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/a.md": strings.Repeat("x", limit*4),
+		})
+		wantCounts(t, run(root), 0, 1)
+	})
+
+	t.Run("one character over limit is red, one finding only", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/a.md": strings.Repeat("x", limit*4+1),
+		})
+		res := run(root)
+		wantCounts(t, res, 1, 0)
+		wantMessage(t, res, "21 estimated tokens exceeds hard limit of 20 (budget 10)")
+		if got := res.Findings[0].Code; got != "tokens/over-limit" {
+			t.Errorf("got code %q, want tokens/over-limit", got)
+		}
+	})
+
+	t.Run("zero limit disables the tier", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"memory/a.md": strings.Repeat("x", 400),
+		})
+		res := runTokens(root, budget, "memory/*.md")
+		wantCounts(t, res, 0, 1)
+		wantMessage(t, res, "exceeds budget of 10")
+	})
+}
+
 func TestTokensWatchMatching(t *testing.T) {
 	tree := map[string]string{
 		"memory/big.md":      strings.Repeat("x", 400),

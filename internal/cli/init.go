@@ -200,6 +200,7 @@ func renderConfig(ev evidence) (string, int) {
 # [tokens]
 # watch = ["memory/*.md"]
 # budget = 2000
+# limit = 4000   # optional hard tier: past this is RED, not YELLOW
 `)
 
 	return b.String(), enabled

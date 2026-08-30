@@ -20,6 +20,7 @@ Rules (all read-only; never autofix):
    YYYY), anchors. Dead ref = RED.
 4. [junk] globs=[...] — matches anywhere under root (skip .git) = YELLOW.
 5. [tokens] watch=[globs], budget=N — len(chars)/4 per file, over = YELLOW.
+   Optional limit=M (must be > budget): over M = RED tokens/over-limit.
 
 Output: findings to stdout, ANSI color (red / yellow / green summary),
 auto-disable color when stdout is not a TTY; --no-color, --strict (yellow
@@ -232,3 +233,17 @@ This deliberately supersedes v0.4's "text output is unchanged": the
 codes existed but were invisible exactly where humans read findings.
 --format github is unchanged: annotations already carry the code in
 their title, and workflow commands have no link field.
+
+# --- v0.8 addendum: two-tier [tokens] (approved 2026-08-30) ---
+
+Add — [tokens] limit=M: an optional hard tier above budget. Past budget
+stays YELLOW tokens/over-budget; past limit is RED tokens/over-limit
+("N estimated tokens exceeds hard limit of M (budget B)"). One finding
+per file — the worse tier wins. Config: limit absent or 0 disables the
+tier; a set limit must be > budget (load error, "greater than budget").
+Motivation: a soft tier that is permanently over goes signal-dead — the
+FBOS handoff ran over its 2000 budget for 15 straight wraps while
+--strict wraps silently failed. The budget warns; the limit gates.
+fixture-broken: [tokens] gains limit=400 and memory/medium.md
+(250 tokens, between the tiers); big.md (420) upgrades to RED.
+Acceptance becomes 9 red + 4 yellow.

@@ -14,7 +14,9 @@ import (
 const ruleTokens = "tokens"
 
 // checkTokens reports watched files whose estimated token count exceeds the
-// budget, and watch globs that matched nothing at all.
+// budget (YELLOW) or, when a limit is configured, the hard limit (RED) — and
+// watch globs that matched nothing at all. A file over both tiers gets one
+// finding, the worse one: the limit already implies the budget.
 //
 // Unlike [junk], watch globs match the root-relative path only, never the
 // basename: a budget is a statement about specific files, and matching
@@ -52,7 +54,12 @@ func checkTokens(r *runner, cfg *config.Tokens) {
 			r.cannotVerify(ruleTokens, rel, err)
 			return nil
 		}
-		if est := EstimateTokens(string(data)); est > cfg.Budget {
+		est := EstimateTokens(string(data))
+		switch {
+		case cfg.Limit > 0 && est > cfg.Limit:
+			r.red(ruleTokens, "tokens/over-limit", rel, fmt.Sprintf(
+				"%d estimated tokens exceeds hard limit of %d (budget %d)", est, cfg.Limit, cfg.Budget))
+		case est > cfg.Budget:
 			r.yellow(ruleTokens, "tokens/over-budget", rel, fmt.Sprintf(
 				"%d estimated tokens exceeds budget of %d", est, cfg.Budget))
 		}

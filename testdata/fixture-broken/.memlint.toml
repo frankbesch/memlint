@@ -31,6 +31,9 @@ globs = ["*.tmp"]
 
 # The second watch glob deliberately matches nothing: a stale glob is a
 # budget check that silently never runs, and must be reported, not skipped.
+# limit is the hard tier: big.md (~420 tokens) breaches it and reports RED;
+# medium.md sits between budget and limit and reports the YELLOW tier.
 [tokens]
 watch = ["memory/*.md", "notes/missing/*.md"]
 budget = 200
+limit = 400
