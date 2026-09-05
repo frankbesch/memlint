@@ -51,6 +51,12 @@ func Run(root string, cfg *config.Config) Result {
 	if cfg.IDs != nil {
 		checkIDs(r, cfg.IDs)
 	}
+	if cfg.Stamps != nil {
+		checkStamps(r, cfg.Stamps)
+	}
+	if cfg.Secrets != nil {
+		checkSecrets(r, cfg.Secrets)
+	}
 
 	sortFindings(r.findings)
 	return Result{

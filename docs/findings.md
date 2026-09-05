@@ -317,3 +317,54 @@ to the end. (`[ids]` with `ordered = true` only.)
 
 Order is by the number inside the id; equal ids are not out of order
 (that is `ids/duplicate`'s job). Gaps are fine.
+
+## stamps/stale
+
+**YELLOW** · The file changed after its "last verified" date, so the stamp
+no longer vouches for what is there. Re-verify the content and update the
+stamp.
+
+Age is the file's last change — its last commit date, or now if it has
+uncommitted edits — minus the stamp date; over `max_age_days` is stale. The
+finding sits on the stamp line.
+
+## stamps/missing
+
+**RED** · A file declared to carry a last-verified stamp has none. Add one
+(`Last verified: YYYY-MM-DD` by default) or stop listing the file.
+
+## stamps/unparsable
+
+**RED** · The stamp matched but is not a `YYYY-MM-DD` date.
+
+## stamps/no-baseline
+
+**YELLOW** · No git history for the file, so its last change is unknown and
+the stamp's age was not checked. Commit it to arm the check.
+
+## stamps/missing-source
+
+**RED** · A file named literally in `[stamps]` does not exist.
+
+## stamps/no-match
+
+**YELLOW** · A `[stamps]` files glob matches nothing.
+
+## stamps/escape
+
+**RED** · The configured path points outside the repository.
+
+## secrets/match
+
+**RED** · A line looks like a credential or card number. The value is never
+printed. Remove or truncate it before it reaches history; if it is a
+deliberate example, change it so the detector no longer fires.
+
+Built-in detectors: AWS access keys, GitHub tokens, Anthropic and OpenAI
+API keys, Slack tokens, private-key blocks, and 13–19-digit runs that pass
+the Luhn check (so order and phone numbers do not fire). `patterns` adds
+the repo's own; a custom hit is named "custom pattern <regex>".
+
+## secrets/no-match
+
+**YELLOW** · A `[secrets]` glob matches nothing, so nothing was scanned.

@@ -389,3 +389,22 @@ non-goal and the v0.6 "** stays rejected" clause.
    N)". Equal ids are the duplicate rule's business; gaps are fine. Ruled
    into [ids] rather than [append_only]: the invariant is about ids, and
    the prefix rule cannot see a committed mid-file paste anyway.
+
+# --- v0.8 addendum, parts 7-8: [stamps] and [secrets] (approved 2026-09-05) ---
+
+7. [stamps] files=[...] (mixed resolver), max_age_days=N (>0),
+   pattern (default "(?i)last[ -]verified:?\\s*(\\d{4}-\\d{2}-\\d{2})",
+   must capture the date). The stamp date must be within N days of the
+   file's last change: the last commit's author date, or now when the
+   working copy differs from HEAD. Stale = YELLOW stamps/stale on the
+   stamp line (age and last-change date in the finding); no stamp = RED
+   stamps/missing; unparsable date = RED stamps/unparsable; no history =
+   YELLOW stamps/no-baseline. Source: FBOS stale-artifacts register,
+   kept by hand until now.
+8. [secrets] globs=[...] (root-relative), patterns=[...] (optional extra
+   regexes). Built-ins: AWS access key, GitHub token, Anthropic key,
+   OpenAI key, Slack token, private-key block, Luhn-valid 13-19-digit
+   card number. Each hit is RED secrets/match "possible <kind> (value not
+   shown)" — the value is never echoed. Zero-match glob = YELLOW
+   secrets/no-match. Source: D-057 / FF-010 tripwire; --changed (part 9)
+   makes it a pre-commit check.

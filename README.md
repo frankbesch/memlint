@@ -208,6 +208,8 @@ mistaken for verification.
 | [`[junk]`](#junk--files-that-should-not-be-there--yellow) | files that should not be there | YELLOW |
 | [`[tokens]`](#tokens--notes-that-got-too-expensive--yellow--red) | notes that outgrew their token budget | YELLOW / RED |
 | [`[ids]`](#ids--ids-that-must-be-unique--red) | ids that must be unique across files | RED |
+| [`[stamps]`](#stamps--last-verified-dates-that-must-keep-up--yellow) | last-verified dates that must keep up with the file | YELLOW |
+| [`[secrets]`](#secrets--credentials-that-must-not-be-there--red) | credential-shaped text that must not be there | RED |
 
 ### `[mirrors]` — files that must stay identical · RED
 
@@ -547,6 +549,41 @@ entry; the first real run did exactly that, eleven times. Requiring
 ` |` after the id means only entry lines match. The trade is explicit: an
 entry whose first line lacks the delimiter is not an id either, so keep the
 entry format uniform. A log with another shape sets its own pattern.
+
+### `[stamps]` — last-verified dates that must keep up · YELLOW
+
+A note that says "Last verified: 2026-08-01" and was edited on 2026-09-01
+is carrying expired evidence. Each listed file must carry a stamp
+(`Last verified: YYYY-MM-DD` by default; `pattern` must capture the date)
+no older than `max_age_days` relative to the file's **last change** — its
+last commit date, or now if it has uncommitted edits — not relative to
+today, so an old note with an equally old stamp is fine.
+
+```toml
+[stamps]
+files = ["portfolio/*.md", "memory/surfaces.md"]
+max_age_days = 30
+```
+
+Stale is YELLOW (`stamps/stale`) on the stamp line; a listed file with no
+stamp at all is RED (`stamps/missing`); no git history is YELLOW.
+
+### `[secrets]` — credentials that must not be there · RED
+
+A card number once rode three commits deep in a memory repo before anyone
+questioned the push. This is the working-tree tripwire: files matching
+`globs` are scanned for credential-shaped text — AWS keys, GitHub tokens,
+Anthropic and OpenAI keys, Slack tokens, private-key blocks, and card
+numbers (13–19 digits that pass the Luhn check, so order and phone numbers
+stay quiet). `patterns` adds the repo's own. The value is **never printed**.
+
+```toml
+[secrets]
+globs = ["**/*.md"]
+patterns = ["FB-SECRET-\\d+"]   # optional extras
+```
+
+Run it with `--changed` before committing and a secret cannot reach history.
 
 ### Glob semantics
 

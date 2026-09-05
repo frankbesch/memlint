@@ -307,3 +307,24 @@ func TestRecursiveGlobsAccepted(t *testing.T) {
 		t.Errorf("got %d globs", len(cfg.Junk.Globs))
 	}
 }
+
+func TestStampsAndSecretsConfig(t *testing.T) {
+	cfg, err := withConfig(t, "[stamps]\nfiles = [\"a.md\"]\nmax_age_days = 30\n\n[secrets]\nglobs = [\"**/*.md\"]\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Stamps == nil || cfg.Secrets == nil || cfg.RuleCount() != 2 {
+		t.Errorf("both sections must enable, got %d rules", cfg.RuleCount())
+	}
+	for _, body := range []string{
+		"[stamps]\nfiles = [\"a.md\"]\n",
+		"[stamps]\nfiles = [\"a.md\"]\nmax_age_days = 0\n",
+		"[stamps]\nfiles = [\"a.md\"]\nmax_age_days = 30\npattern = \"no group\"\n",
+		"[secrets]\n",
+		"[secrets]\nglobs = [\"*.md\"]\npatterns = [\"(\"]\n",
+	} {
+		if _, err := withConfig(t, body); err == nil {
+			t.Errorf("must reject:\n%s", body)
+		}
+	}
+}

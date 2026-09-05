@@ -213,6 +213,15 @@ func renderConfig(ev evidence) (string, int) {
 # known = ["D-102"]               # reconciled collisions: INFO, not RED
 # cited_in = ["CLAUDE.md"]        # every cited id must be an entry
 # ordered = true                  # entries must not go backwards
+
+# Last-verified stamps that must keep up with the file's last change:
+# [stamps]
+# files = ["portfolio/*.md"]
+# max_age_days = 30
+
+# Credential-shaped text that must never reach history:
+# [secrets]
+# globs = ["**/*.md"]
 `)
 
 	return b.String(), enabled

@@ -30,6 +30,35 @@ type Config struct {
 	Junk       *Junk       `toml:"junk"`
 	Tokens     *Tokens     `toml:"tokens"`
 	IDs        *IDs        `toml:"ids"`
+	Stamps     *Stamps     `toml:"stamps"`
+	Secrets    *Secrets    `toml:"secrets"`
+}
+
+// Stamps requires each listed file to carry a last-verified date stamp no
+// older than MaxAgeDays relative to the file's last change.
+type Stamps struct {
+	Files      []string `toml:"files"`
+	MaxAgeDays int      `toml:"max_age_days"`
+	// Pattern must capture a YYYY-MM-DD date in its first group.
+	Pattern string `toml:"pattern"`
+}
+
+// DefaultStampPattern matches "Last verified: 2026-09-05" and close variants.
+const DefaultStampPattern = `(?i)last[ -]verified:?\s*(\d{4}-\d{2}-\d{2})`
+
+// EffectivePattern is Pattern, or the default.
+func (s *Stamps) EffectivePattern() string {
+	if s.Pattern == "" {
+		return DefaultStampPattern
+	}
+	return s.Pattern
+}
+
+// Secrets scans files matching Globs for credential-shaped text: built-in
+// detectors plus any extra Patterns.
+type Secrets struct {
+	Globs    []string `toml:"globs"`
+	Patterns []string `toml:"patterns"`
 }
 
 // Mirrors requires the two sides of each pair to stay byte-identical.
@@ -179,6 +208,7 @@ func (c *Config) RuleCount() int {
 		c.Mirrors != nil, c.AppendOnly != nil, c.Blocks != nil,
 		c.HumanBrief != nil, c.Pointers != nil,
 		c.Junk != nil, c.Tokens != nil, c.IDs != nil,
+		c.Stamps != nil, c.Secrets != nil,
 	} {
 		if enabled {
 			n++
@@ -258,6 +288,51 @@ func (c *Config) validate() error {
 	if c.IDs != nil {
 		if err := c.IDs.validate(); err != nil {
 			return fmt.Errorf("[ids]: %w", err)
+		}
+	}
+	if c.Stamps != nil {
+		if err := c.Stamps.validate(); err != nil {
+			return fmt.Errorf("[stamps]: %w", err)
+		}
+	}
+	if c.Secrets != nil {
+		if err := c.Secrets.validate(); err != nil {
+			return fmt.Errorf("[secrets]: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *Stamps) validate() error {
+	if len(s.Files) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files and max_age_days")
+	}
+	if err := validMixedPathList("files", s.Files); err != nil {
+		return err
+	}
+	if s.MaxAgeDays <= 0 {
+		return fmt.Errorf("max_age_days: must be a positive number of days, got %d", s.MaxAgeDays)
+	}
+	re, err := regexp.Compile(s.EffectivePattern())
+	if err != nil {
+		return fmt.Errorf("pattern: invalid regular expression %q: %w", s.Pattern, err)
+	}
+	if re.NumSubexp() < 1 {
+		return fmt.Errorf("pattern: must capture the date in a group, got %q", s.Pattern)
+	}
+	return nil
+}
+
+func (s *Secrets) validate() error {
+	if len(s.Globs) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set globs")
+	}
+	if err := validGlobList("globs", s.Globs); err != nil {
+		return err
+	}
+	for i, p := range s.Patterns {
+		if _, err := regexp.Compile(p); err != nil {
+			return fmt.Errorf("patterns[%d]: invalid regular expression %q: %w", i, p, err)
 		}
 	}
 	return nil
