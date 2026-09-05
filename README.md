@@ -458,12 +458,13 @@ citation of `D-102` is ambiguous. An allocator upstream can prevent new
 collisions; only a check on the files can find the ones that landed.
 
 Every id that **opens a line** in any listed file must be unique across all
-of them. The default pattern is the decisions-log form:
+of them. The default pattern is the decisions-log entry form, delimiter
+included:
 
 ```toml
 [ids]
 files = ["memory/decisions.md", "memory/archive/*.md"]
-pattern = "^(D-\\d{3})"   # default; the first capture group is the id
+pattern = "^(D-\\d{3}) \\|"   # default: an entry line; the capture group is the id
 ```
 
 The pattern is matched per line, and only a match starting at column 1 is
@@ -485,19 +486,13 @@ one pattern.
 path only, a glob matching nothing is YELLOW (`ids/no-match`), and a
 missing literal entry is RED (`ids/missing-source`).
 
-**If your entries wrap**, a continuation line can start with an id too —
-`D-102). (2) the next step…` at column 1 is a citation that the default
-pattern reads as an entry. Tighten the pattern to include your entry
-delimiter, so only a real entry line matches:
-
-```toml
-[ids]
-files = ["memory/decisions.md", "memory/archive/*.md"]
-pattern = "^(D-\\d{3}) \\|"   # "D-### | date | ..." entries only
-```
-
-The trade is explicit: an entry whose first line lacks the delimiter is
-then not an id either, so keep the entry format uniform.
+**Why the delimiter is in the default:** entries that wrap by hand produce
+continuation lines, and one can start with a cited id — `D-102). (2) the
+next step…` at column 1. A bare `^(D-\\d{3})` reads that as a second
+entry; the first real run did exactly that, eleven times. Requiring
+` |` after the id means only entry lines match. The trade is explicit: an
+entry whose first line lacks the delimiter is not an id either, so keep the
+entry format uniform. A log with another shape sets its own pattern.
 
 ### Glob semantics
 

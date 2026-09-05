@@ -239,18 +239,19 @@ Watch globs match root-relative paths only, never basenames.
 fresh id (or, if it is a straight copy, remove it) and fix anything that
 cited it.
 
-Ids are matched per line with the `[ids]` pattern (default `^(D-\d{3})`),
-and only a match starting at column 1 counts — a mid-line "see D-001" is a
-citation, not an id. The id is the pattern's first capture group. "First"
+Ids are matched per line with the `[ids]` pattern (default
+`^(D-\d{3}) \|`, an entry line with its delimiter), and only a match
+starting at column 1 counts — a mid-line "see D-001" is a citation, not an
+id. The id is the pattern's first capture group. "First"
 is the earliest occurrence in source order — literal `files` entries in
 config order, then glob matches in walk order — then by line; every later
 occurrence is its own finding citing that first one. Gaps (a withdrawn id)
 are not findings.
 
-False positive to know about: in a log whose entries wrap, a continuation
-line can begin with a cited id at column 1 (`D-102). (2) …`). If that
-happens, set `pattern` to include the entry delimiter — `^(D-\d{3}) \|`
-for `D-### | date | …` logs — so only real entry lines count.
+The delimiter is in the default on purpose: in a log whose entries wrap, a
+continuation line can begin with a cited id at column 1 (`D-102). (2) …`),
+and a bare `^(D-\d{3})` reads it as an entry. A log with a different entry
+shape sets its own `pattern`; the column-1 rule still applies.
 
 ## ids/missing-source
 

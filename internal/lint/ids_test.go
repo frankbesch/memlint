@@ -80,10 +80,23 @@ func TestIDsDuplicateAcrossFilesLiteralIsFirst(t *testing.T) {
 // with that rule, and a pattern without ^ is anchored the same way.
 func TestIDsMatchMustStartTheLine(t *testing.T) {
 	root := writeTree(t, map[string]string{
-		"a.md": "D-001 | a\n  D-001 indented, not an id\nsee D-001 again\n- D-001 bullet\n",
+		"a.md": "D-001 | a\n  D-001 | indented, not an id\nsee D-001 again\n- D-001 | bullet\n",
 	})
 	wantCounts(t, runIDs(root, &config.IDs{Files: []string{"a.md"}}), 0, 0)
 	wantCounts(t, runIDs(root, &config.IDs{Files: []string{"a.md"}, Pattern: `(D-\d{3})`}), 0, 0)
+}
+
+// The default pattern needs the entry delimiter: a wrapped continuation line
+// that begins with a cited id is not an entry. The bare pattern, opted into,
+// reads it as one — which is exactly the false positive the default avoids.
+func TestIDsDefaultPatternIgnoresWrappedCitations(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a.md": "D-101 | ruled; supersedes\nD-102). Next step is\nD-102 | the real entry\n",
+	})
+	wantCounts(t, runIDs(root, &config.IDs{Files: []string{"a.md"}}), 0, 0)
+	res := runIDs(root, &config.IDs{Files: []string{"a.md"}, Pattern: `^(D-\d{3})`})
+	wantCounts(t, res, 1, 0)
+	wantMessage(t, res, "duplicate id D-102: first at a.md:2")
 }
 
 func TestIDsCustomPattern(t *testing.T) {
@@ -104,7 +117,7 @@ func TestIDsCustomPattern(t *testing.T) {
 // it, and CRLF endings do not either.
 func TestIDsCaptureGroupAndCRLF(t *testing.T) {
 	root := writeTree(t, map[string]string{
-		"a.md": "D-001 | a\r\nD-002\r\nD-001\r\n",
+		"a.md": "D-001 | a\r\nD-002 | b\r\nD-001 | c\r\n",
 	})
 	res := runIDs(root, &config.IDs{Files: []string{"a.md"}})
 	wantCounts(t, res, 1, 0)

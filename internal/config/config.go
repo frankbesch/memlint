@@ -102,13 +102,19 @@ type Tokens struct {
 // files. Pattern is matched per line and must match at column 1; its first
 // capture group is the id (the whole match when there is none). Gaps are
 // not findings: a withdrawn id is legitimately absent.
+//
+// The default pattern requires the entry delimiter ("D-### | ..."), not just
+// the id: in a log whose entries wrap by hand, a continuation line can begin
+// with a cited id at column 1, and the bare form read eleven such citations
+// as entries on the first real run (ruled 2026-09-05).
 type IDs struct {
 	Files   []string `toml:"files"`
 	Pattern string   `toml:"pattern"`
 }
 
-// DefaultIDPattern is the decisions-log form, D-### at the start of a line.
-const DefaultIDPattern = `^(D-\d{3})`
+// DefaultIDPattern is the decisions-log entry form: "D-### | ..." at the
+// start of a line. The delimiter is part of the match on purpose (see IDs).
+const DefaultIDPattern = `^(D-\d{3}) \|`
 
 // EffectivePattern is Pattern, or the default when none was configured.
 func (i *IDs) EffectivePattern() string {

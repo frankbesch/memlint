@@ -13,5 +13,4 @@
 
 [ids]
 files = ["memory/decisions.md", "memory/archive/*.md"]
-# pattern = "^(D-\\d{3})" is the default; shown here only to document it.
-pattern = "^(D-\\d{3})"
+# pattern defaults to "^(D-\\d{3}) \\|": an entry line, delimiter included.

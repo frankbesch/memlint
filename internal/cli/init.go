@@ -205,7 +205,7 @@ func renderConfig(ev evidence) (string, int) {
 # Ids that open a line (D-001, D-002, ...) must be unique across these files:
 # [ids]
 # files = ["memory/decisions.md", "memory/archive/*.md"]
-# pattern = "^(D-\\d{3})"   # default; the first capture group is the id
+# pattern = "^(D-\\d{3}) \\|"   # default: an entry line; the capture group is the id
 `)
 
 	return b.String(), enabled

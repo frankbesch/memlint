@@ -305,7 +305,8 @@ unchanged: 9 red + 4 yellow.
 8. [ids] files=[...] (literals and globs, the [pointers] files resolver:
    root-relative globs, literals in config order then glob matches in walk
    order, deduplicated; zero-match glob = YELLOW ids/no-match, missing
-   literal = RED ids/missing-source), pattern="^(D-\\d{3})" (default). The
+   literal = RED ids/missing-source), pattern="^(D-\\d{3}) \\|" (default:
+   an entry line, delimiter included — see the acceptance note). The
    pattern is matched per line; only a match starting at column 1 is an id,
    so a mid-line citation never counts; the id is the first capture group,
    or the whole match without one. Every id must be unique across all
@@ -335,6 +336,5 @@ by hand, and eleven continuation lines begin with a cited id at column 1
 ("D-102). (2) `scripts/next-id.sh` ships…"). With pattern =
 "^(D-\\d{3}) \\|" — entry lines only — the result is exactly one:
 D-102, first memory/decisions.md:43, again memory/decisions.md:58, the
-receipt D-127 already records. The default stays as specified; the
-delimiter-tightened pattern is the documented answer for wrapped logs, and
-whether it becomes the default is Frank's call.
+receipt D-127 already records. RULED (Frank, 2026-09-05, same day): the
+delimiter form "^(D-\\d{3}) \\|" IS the default; the bare form is opt-in.

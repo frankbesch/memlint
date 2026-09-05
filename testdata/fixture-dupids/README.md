@@ -8,9 +8,10 @@ A decisions log with two id collisions. `memlint check` must report exactly
 | 1 | RED | ids | `D-050` is in `memory/archive/decisions-vol1.md` and again in `memory/decisions.md` |
 | 2 | RED | ids | `D-102` appears twice in `memory/decisions.md` (two sessions, same minute) |
 
-Planted non-findings: `D-002` is absent (a gap is not a finding), and the
+Planted non-findings: `D-002` is absent (a gap is not a finding), the
 header's "See D-001" is a mid-line mention, not an id — only a match at
-column 1 counts.
+column 1 counts — and `D-103`'s wrapped second line begins with a cited
+`D-101` that lacks the entry delimiter, so the default pattern skips it.
 
 The live log is listed before the archive glob, so its `D-050` is "first"
 and the volume's occurrence is reported as the duplicate.
