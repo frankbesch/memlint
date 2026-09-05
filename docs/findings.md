@@ -231,3 +231,42 @@ time. A file over both tiers reports once, at this severity.
 declares never runs. Rename it to match reality, or remove it.
 
 Watch globs match root-relative paths only, never basenames.
+
+## ids/duplicate
+
+**RED** · The same id opens a line in two places — two entries claim to be
+`D-102`. Every citation of that id is now ambiguous. Give the later entry a
+fresh id (or, if it is a straight copy, remove it) and fix anything that
+cited it.
+
+Ids are matched per line with the `[ids]` pattern (default `^(D-\d{3})`),
+and only a match starting at column 1 counts — a mid-line "see D-001" is a
+citation, not an id. The id is the pattern's first capture group. "First"
+is the earliest occurrence in source order — literal `files` entries in
+config order, then glob matches in walk order — then by line; every later
+occurrence is its own finding citing that first one. Gaps (a withdrawn id)
+are not findings.
+
+False positive to know about: in a log whose entries wrap, a continuation
+line can begin with a cited id at column 1 (`D-102). (2) …`). If that
+happens, set `pattern` to include the entry delimiter — `^(D-\d{3}) \|`
+for `D-### | date | …` logs — so only real entry lines count.
+
+## ids/missing-source
+
+**RED** · A file named literally in `[ids]` does not exist. Fix the path or
+remove it; a glob that matches nothing is the YELLOW `ids/no-match`
+instead.
+
+## ids/no-match
+
+**YELLOW** · A `[ids]` files glob matches nothing, so the uniqueness check
+it declares covers nothing. Rename it to match reality, or remove it.
+
+Globs match root-relative paths only, never basenames — the `[pointers]`
+files rationale.
+
+## ids/escape
+
+**RED** · A configured path points outside the repository, where memlint
+refuses to follow.

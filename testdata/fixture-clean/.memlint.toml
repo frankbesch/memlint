@@ -24,3 +24,7 @@ globs = ["*.tmp", ".DS_Store"]
 [tokens]
 watch = ["memory/*.md"]
 budget = 200
+
+# Every id at the start of a line is unique. A gap (D-002) is fine.
+[ids]
+files = ["memory/decisions.md"]

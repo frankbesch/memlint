@@ -201,6 +201,11 @@ func renderConfig(ev evidence) (string, int) {
 # watch = ["memory/*.md"]
 # budget = 2000
 # limit = 4000   # optional hard tier: past this is RED, not YELLOW
+
+# Ids that open a line (D-001, D-002, ...) must be unique across these files:
+# [ids]
+# files = ["memory/decisions.md", "memory/archive/*.md"]
+# pattern = "^(D-\\d{3})"   # default; the first capture group is the id
 `)
 
 	return b.String(), enabled

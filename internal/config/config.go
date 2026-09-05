@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -28,6 +29,7 @@ type Config struct {
 	Pointers   *Pointers   `toml:"pointers"`
 	Junk       *Junk       `toml:"junk"`
 	Tokens     *Tokens     `toml:"tokens"`
+	IDs        *IDs        `toml:"ids"`
 }
 
 // Mirrors requires the two sides of each pair to stay byte-identical.
@@ -95,6 +97,27 @@ type Tokens struct {
 	Limit  int      `toml:"limit"`
 }
 
+// IDs requires every id at the start of a line, across all listed files, to
+// be unique. Files accepts literals and globs, resolved like [pointers]
+// files. Pattern is matched per line and must match at column 1; its first
+// capture group is the id (the whole match when there is none). Gaps are
+// not findings: a withdrawn id is legitimately absent.
+type IDs struct {
+	Files   []string `toml:"files"`
+	Pattern string   `toml:"pattern"`
+}
+
+// DefaultIDPattern is the decisions-log form, D-### at the start of a line.
+const DefaultIDPattern = `^(D-\d{3})`
+
+// EffectivePattern is Pattern, or the default when none was configured.
+func (i *IDs) EffectivePattern() string {
+	if i.Pattern == "" {
+		return DefaultIDPattern
+	}
+	return i.Pattern
+}
+
 // RuleCount reports how many rules are enabled. Zero is valid: every rule is
 // simply disabled, and the run reports clean without claiming to have verified
 // anything.
@@ -103,7 +126,7 @@ func (c *Config) RuleCount() int {
 	for _, enabled := range []bool{
 		c.Mirrors != nil, c.AppendOnly != nil, c.Blocks != nil,
 		c.HumanBrief != nil, c.Pointers != nil,
-		c.Junk != nil, c.Tokens != nil,
+		c.Junk != nil, c.Tokens != nil, c.IDs != nil,
 	} {
 		if enabled {
 			n++
@@ -178,6 +201,11 @@ func (c *Config) validate() error {
 	if c.Tokens != nil {
 		if err := c.Tokens.validate(); err != nil {
 			return fmt.Errorf("[tokens]: %w", err)
+		}
+	}
+	if c.IDs != nil {
+		if err := c.IDs.validate(); err != nil {
+			return fmt.Errorf("[ids]: %w", err)
 		}
 	}
 	return nil
@@ -314,6 +342,21 @@ func (t *Tokens) validate() error {
 	}
 	if t.Limit != 0 && t.Limit <= t.Budget {
 		return fmt.Errorf("limit: must be greater than budget (%d) when set, got %d", t.Budget, t.Limit)
+	}
+	return nil
+}
+
+func (i *IDs) validate() error {
+	if len(i.Files) == 0 {
+		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files")
+	}
+	if err := validMixedPathList("files", i.Files); err != nil {
+		return err
+	}
+	// An empty pattern is indistinguishable from an absent one after
+	// decoding; both mean the default.
+	if _, err := regexp.Compile(i.EffectivePattern()); err != nil {
+		return fmt.Errorf("pattern: invalid regular expression %q: %w", i.Pattern, err)
 	}
 	return nil
 }

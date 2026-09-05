@@ -141,6 +141,13 @@ start = "<!-- A\nB -->"
 end = "<!-- C -->"`, "single line"},
 
 		{"empty human_brief", "[human_brief]\n", "present but empty"},
+
+		{"empty ids", "[ids]\n", "present but empty"},
+		{"ids bad pattern", `[ids]
+files = ["a.md"]
+pattern = "^(D-\\d{3}"`, "pattern"},
+		{"ids duplicate file", `[ids]
+files = ["a.md", "./a.md"]`, "duplicate entry"},
 		{"human_brief without authors", `[human_brief]
 files = ["INSTRUCTIONS.md"]`, "present but empty"},
 		{"human_brief empty author", `[human_brief]
@@ -257,5 +264,26 @@ func TestAppendOnlyHeaderLines(t *testing.T) {
 	}
 	if cfg.AppendOnly.HeaderLines != 4 {
 		t.Errorf("got header_lines %d, want 4", cfg.AppendOnly.HeaderLines)
+	}
+}
+
+// [ids] pattern defaults to the D-### form and can be replaced.
+func TestIDsPatternDefault(t *testing.T) {
+	cfg, err := withConfig(t, "[ids]\nfiles = [\"a.md\"]\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.IDs == nil || cfg.IDs.Pattern != "" || cfg.IDs.EffectivePattern() != DefaultIDPattern {
+		t.Errorf("absent pattern must resolve to the default, got %+v", cfg.IDs)
+	}
+	if cfg.RuleCount() != 1 {
+		t.Errorf("[ids] must count as a rule, got %d", cfg.RuleCount())
+	}
+	cfg, err = withConfig(t, "[ids]\nfiles = [\"a.md\", \"b/*.md\"]\npattern = \"^(L-\\\\d+)\"\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.IDs.EffectivePattern() != `^(L-\d+)` {
+		t.Errorf("got pattern %q", cfg.IDs.EffectivePattern())
 	}
 }

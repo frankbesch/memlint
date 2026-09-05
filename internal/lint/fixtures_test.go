@@ -203,3 +203,23 @@ func TestFixtureRotated(t *testing.T) {
 		}
 	})
 }
+
+// fixture-dupids: exactly two id collisions, nothing else. The gap and the
+// mid-line mention it also carries must stay silent.
+func TestFixtureDupIDs(t *testing.T) {
+	res := runFixture(t, "fixture-dupids")
+	wantCounts(t, res, 2, 0)
+	for _, w := range []struct{ path, message string }{
+		{"memory/archive/decisions-vol1.md", "duplicate id D-050: first at memory/decisions.md:5"},
+		{"memory/decisions.md", "duplicate id D-102: first at memory/decisions.md:7"},
+	} {
+		if !hasFinding(res, "ids", w.path, w.message) {
+			t.Errorf("missing expected finding: ids %s %q\ngot:\n%s", w.path, w.message, dump(res))
+		}
+	}
+	for _, f := range res.Findings {
+		if strings.Contains(f.Message, "D-001") || strings.Contains(f.Message, "D-002") {
+			t.Errorf("gap or mid-line mention reported: %s", f.Message)
+		}
+	}
+}

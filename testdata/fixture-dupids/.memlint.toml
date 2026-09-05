@@ -1,0 +1,17 @@
+# A decisions log with two id collisions. memlint must report exactly 2 RED
+# ids/duplicate findings here and exit 1: D-102 written twice in the live
+# log (two sessions, same minute), and D-050 present in both the archived
+# volume and the live log.
+#
+# Not findings, and planted to stay that way: the D-002 gap (a withdrawn id
+# is legitimately absent) and the mid-line "see D-001" mention (only a match
+# at column 1 is an id).
+#
+# Resolution order decides which occurrence is "first": literal entries in
+# config order, then glob matches in walk order. So the live log's D-050 is
+# first and the volume's is the duplicate.
+
+[ids]
+files = ["memory/decisions.md", "memory/archive/*.md"]
+# pattern = "^(D-\\d{3})" is the default; shown here only to document it.
+pattern = "^(D-\\d{3})"

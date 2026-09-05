@@ -46,6 +46,7 @@ func TestEveryCodeIsDocumented(t *testing.T) {
 	rules := map[string]bool{
 		"mirrors": true, "append_only": true, "blocks": true,
 		"human_brief": true, "pointers": true, "junk": true, "tokens": true,
+		"ids": true,
 	}
 	codeRe := regexp.MustCompile(`"([a-z_]+)/([a-z-]+)"`)
 

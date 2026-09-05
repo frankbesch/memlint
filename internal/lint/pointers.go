@@ -271,6 +271,19 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 // caller's read, so that the two failure shapes keep their severities:
 // a named file that is gone is RED, a pattern that matches nothing is YELLOW.
 func pointerSources(r *runner, files []string) []string {
+	return expandSources(r, rulePointers, files, Finding{
+		Rule: rulePointers, Code: "pointers/no-match", Severity: SeverityYellow,
+		Message: "files glob matched no files",
+		Detail:  "a stale source glob is pointer coverage that silently never runs",
+	})
+}
+
+// expandSources is the shared files resolver behind [pointers] and [ids]:
+// literal entries first, in config order, then glob matches in walk order,
+// deduplicated. Globs match the root-relative path only, never the basename.
+// noMatch is the finding template emitted, with Path set to the glob, for
+// each glob that matched nothing.
+func expandSources(r *runner, rule string, files []string, noMatch Finding) []string {
 	var sources []string
 	seen := map[string]bool{}
 	var globs []string
@@ -290,7 +303,7 @@ func pointerSources(r *runner, files []string) []string {
 	}
 
 	matched := make(map[string]bool, len(globs))
-	r.walk(rulePointers, func(rel string, d fs.DirEntry) error {
+	r.walk(rule, func(rel string, d fs.DirEntry) error {
 		if d.IsDir() || !d.Type().IsRegular() {
 			return nil
 		}
@@ -307,11 +320,9 @@ func pointerSources(r *runner, files []string) []string {
 	})
 	for _, g := range globs {
 		if !matched[g] {
-			r.add(Finding{
-				Rule: rulePointers, Code: "pointers/no-match", Severity: SeverityYellow, Path: g,
-				Message: "files glob matched no files",
-				Detail:  "a stale source glob is pointer coverage that silently never runs",
-			})
+			f := noMatch
+			f.Path = g
+			r.add(f)
 		}
 	}
 	return sources

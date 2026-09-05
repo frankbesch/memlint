@@ -48,6 +48,9 @@ func Run(root string, cfg *config.Config) Result {
 	if cfg.Tokens != nil {
 		checkTokens(r, cfg.Tokens)
 	}
+	if cfg.IDs != nil {
+		checkIDs(r, cfg.IDs)
+	}
 
 	sortFindings(r.findings)
 	return Result{

@@ -95,7 +95,7 @@ memlint: 9 red, 4 yellow
 A clean repository prints one line:
 
 ```text
-memlint: clean (5 rules, 8 files checked)
+memlint: clean (6 rules, 9 files checked)
 ```
 
 ### Flags
@@ -133,7 +133,8 @@ repo is broken" apart from "memlint is misconfigured."
 ### In GitHub Actions
 
 `--format github` renders every finding as an inline annotation on the pull
-request diff — `::error` for RED, `::warning` for YELLOW:
+request diff — `::error` for RED, `::warning` for YELLOW, `::notice` for
+INFO:
 
 ```yaml
 - run: memlint check --format github --strict .
@@ -181,6 +182,9 @@ globs = ["*.tmp", ".DS_Store"]
 [tokens]
 watch = ["memory/*.md"]
 budget = 2000
+
+[ids]
+files = ["memory/decisions.md", "memory/archive/*.md"]
 ```
 
 memlint rejects any key it does not recognize, along with empty sections,
@@ -203,6 +207,7 @@ mistaken for verification.
 | [`[pointers]`](#pointers--references-that-must-resolve--red) | references that must resolve | RED |
 | [`[junk]`](#junk--files-that-should-not-be-there--yellow) | files that should not be there | YELLOW |
 | [`[tokens]`](#tokens--notes-that-got-too-expensive--yellow--red) | notes that outgrew their token budget | YELLOW / RED |
+| [`[ids]`](#ids--ids-that-must-be-unique--red) | ids that must be unique across files | RED |
 
 ### `[mirrors]` — files that must stay identical · RED
 
@@ -445,6 +450,55 @@ check that silently never runs, which is the same failure mode the config
 loader refuses for unknown keys. `[junk]` is exempt: there, matching nothing
 is the desired state.
 
+### `[ids]` — ids that must be unique · RED
+
+A decisions log is cited by id. Two sessions that each allocate the next
+number in the same minute both write `D-102`, and from then on every
+citation of `D-102` is ambiguous. An allocator upstream can prevent new
+collisions; only a check on the files can find the ones that landed.
+
+Every id that **opens a line** in any listed file must be unique across all
+of them. The default pattern is the decisions-log form:
+
+```toml
+[ids]
+files = ["memory/decisions.md", "memory/archive/*.md"]
+pattern = "^(D-\\d{3})"   # default; the first capture group is the id
+```
+
+The pattern is matched per line, and only a match starting at column 1 is
+an id, whatever the pattern says — a mid-line "see D-001" is a citation. A
+duplicate is RED, reported at the *later* occurrence and citing the first:
+
+```text
+ids  RED  memory/decisions.md:58  duplicate id D-102: first at memory/decisions.md:43 [ids/duplicate]
+```
+
+"First" is source order — literal `files` entries in config order, then
+glob matches — then line order, so list the live log before the archive
+glob and the live entry is the one a duplicate is measured against. Gaps
+are not findings: a withdrawn `D-070` is legitimately absent. Lesson files
+or any second numbering would use their own pattern; one section carries
+one pattern.
+
+`files` resolves like `[pointers]` files: globs match the root-relative
+path only, a glob matching nothing is YELLOW (`ids/no-match`), and a
+missing literal entry is RED (`ids/missing-source`).
+
+**If your entries wrap**, a continuation line can start with an id too —
+`D-102). (2) the next step…` at column 1 is a citation that the default
+pattern reads as an entry. Tighten the pattern to include your entry
+delimiter, so only a real entry line matches:
+
+```toml
+[ids]
+files = ["memory/decisions.md", "memory/archive/*.md"]
+pattern = "^(D-\\d{3}) \\|"   # "D-### | date | ..." entries only
+```
+
+The trade is explicit: an entry whose first line lacks the delimiter is
+then not an id either, so keep the entry format uniform.
+
 ### Glob semantics
 
 `*` matches within a single path segment and does not cross `/`. Recursive `**`
@@ -504,6 +558,7 @@ go build -o ./memlint .
 ./memlint check --no-color testdata/fixture-broken   # 9 red, 4 yellow, exit 1
 ./memlint check --no-color testdata/fixture-clean    # clean, exit 0
 ./memlint check --no-color testdata/fixture-yellow   # yellow only, exit 0
+./memlint check --no-color testdata/fixture-dupids   # 2 red (ids/duplicate), exit 1
 ```
 
 [testdata/fixture-broken](testdata/fixture-broken) carries nine planted RED
@@ -513,6 +568,8 @@ over-reporting or quietly stops reporting breaks it.
 [testdata/fixture-rotated](testdata/fixture-rotated) is an append-only log
 mid-rotation; because a committed file always equals its own HEAD, its test
 builds the git state around it rather than checking the tree as it sits.
+[testdata/fixture-dupids](testdata/fixture-dupids) plants exactly two id
+collisions next to a gap and a mid-line mention that must stay silent.
 
 memlint runs against itself. `.memlint.toml` at this repo's root enables only
 the rules that genuinely apply here.
@@ -538,7 +595,9 @@ In priority order:
 Shipped from this list: anchor-aware `[pointers]` checking and glob support
 in `[pointers]` files (v0.6); self-describing findings — every code documented
 in [docs/findings.md](docs/findings.md), linked from text output and as
-`doc_url` in JSON, with no `explain` subcommand by ruling (v0.7).
+`doc_url` in JSON, with no `explain` subcommand by ruling; two-tier
+`[tokens]`; rotation-aware `[append_only]` with `header_lines`; the `[ids]`
+rule (all v0.7.0).
 
 Shipped from earlier roadmaps: `memlint init` (v0.4.0), base-ref
 `[append_only]` via `--base` (v0.5.0).

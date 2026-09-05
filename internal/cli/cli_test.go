@@ -73,6 +73,7 @@ func TestExitCodes(t *testing.T) {
 	}{
 		{"clean repository", []string{"check", fixture("fixture-clean")}, 0},
 		{"red findings", []string{"check", fixture("fixture-broken")}, 1},
+		{"duplicate ids", []string{"check", fixture("fixture-dupids")}, 1},
 		{"yellow findings are not a failure", []string{"check", fixture("fixture-yellow")}, 0},
 		{"yellow findings fail under strict", []string{"check", "--strict", fixture("fixture-yellow")}, 1},
 		{"red findings under strict", []string{"check", "--strict", fixture("fixture-broken")}, 1},
