@@ -509,3 +509,28 @@ func TestAppendOnlyRotationSpanIsWholeLines(t *testing.T) {
 	res = runAppendOnlyCfg(root, rotationCfg())
 	wantCounts(t, res, 1, 1)
 }
+
+// headers = { path = N } overrides header_lines per file, so an archive
+// volume with a 6-line header is not left with body lines in the shared
+// window. Keys must name listed files (config error otherwise).
+func TestAppendOnlyPerFileHeaders(t *testing.T) {
+	requireGit(t)
+	root := newRepo(t, map[string]string{"memory/decisions.md": logHeader + logBody})
+	writeFile(t, root, "memory/decisions.md", rotatedLive)
+	// A 5-line archive header: the shared N of 3 would leave "lead" and "---"
+	// inside the body and the span would still be found after them; the point
+	// of the override is that the body starts where THIS file's header ends.
+	writeFile(t, root, "memory/archive/vol1.md", "# vol 1\nnote\n\nlead\n---\n- D-001: adopt memlint\n- D-002: ship v0.1\n")
+
+	cfg := rotationCfg()
+	cfg.Headers = map[string]int{"memory/archive/vol1.md": 5}
+	wantRotated(t, runAppendOnlyCfg(root, cfg), "memory/decisions.md", "memory/archive/vol1.md", 2)
+
+	// The override applies to the file's own prefix check as well.
+	root = newRepo(t, map[string]string{"memory/archive/vol1.md": "h1\nh2\nh3\nh4\nh5\n- D-001\n"})
+	writeFile(t, root, "memory/archive/vol1.md", "H1\nH2\nH3\nH4\nH5\n- D-001\n- D-002\n")
+	cfg = &config.AppendOnly{Files: []string{"memory/archive/vol1.md"}, HeaderLines: 1, Headers: map[string]int{"memory/archive/vol1.md": 5}}
+	wantCounts(t, runAppendOnlyCfg(root, cfg), 0, 0)
+	cfg.Headers = nil
+	wantCounts(t, runAppendOnlyCfg(root, cfg), 1, 0)
+}

@@ -184,17 +184,21 @@ func renderConfig(ev evidence) (string, int) {
 # Logs that may only grow, compared against git HEAD:
 # [append_only]
 # files = ["memory/decisions.md"]
+# header_lines = 10                          # optional: the only mutable span
+# headers = { "memory/archive/vol1.md" = 8 } # optional per-file override
 
 # Agent-owned regions whose markers must stay well-formed:
 # [blocks]
 # files = ["CLAUDE.md"]
 # start = "<!-- AGENT:START -->"
 # end = "<!-- AGENT:END -->"
+# mirror = true   # optional: block content must match across the files
 
 # Files no agent may ever have written, checked against full git history:
 # [human_brief]
 # files = ["INSTRUCTIONS.md"]
 # agent_authors = ["noreply@anthropic.com"]
+# follow_renames = true   # optional: keep history across a rename
 
 # Notes that must stay under a token budget:
 # [tokens]

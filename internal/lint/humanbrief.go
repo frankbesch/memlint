@@ -32,7 +32,8 @@ const ruleHumanBrief = "human_brief"
 // the point: the breach of trust does not age out.
 //
 // Matching is against name and email, case-insensitively and exactly. Renames
-// are not followed; history before a rename belongs to the old path.
+// are followed only with follow_renames = true; by default history before a
+// rename belongs to the old path.
 func checkHumanBrief(r *runner, cfg *config.HumanBrief) {
 	if _, err := exec.LookPath("git"); err != nil {
 		for _, f := range cfg.Files {
@@ -45,17 +46,17 @@ func checkHumanBrief(r *runner, cfg *config.HumanBrief) {
 		return
 	}
 	for _, f := range cfg.Files {
-		checkHumanBriefFile(r, config.CleanRel(f), cfg.AgentAuthors)
+		checkHumanBriefFile(r, config.CleanRel(f), cfg.AgentAuthors, cfg.FollowRenames)
 	}
 }
 
-func checkHumanBriefFile(r *runner, rel string, agents []string) {
+func checkHumanBriefFile(r *runner, rel string, agents []string, follow bool) {
 	if _, ok := r.resolve(rel); !ok {
 		r.red(ruleHumanBrief, "human_brief/escape", rel, "path escapes the repository root")
 		return
 	}
 
-	commits, err := gitFileCommits(r.root, rel)
+	commits, err := gitFileCommits(r.root, rel, follow)
 	if err != nil {
 		// Same policy as [append_only]: no history means the invariant could
 		// not be established, not that it was violated.
@@ -156,12 +157,20 @@ const (
 // commit's author and any Co-Authored-By trailers. The pathspec is passed
 // relative to -C, which is what makes this work when the memlint root is a
 // subdirectory of a larger repository.
-func gitFileCommits(root, rel string) ([]commitInfo, error) {
+//
+// follow adds --follow, which carries the walk across renames; git only
+// honors it for a single path, which is what this rule always passes.
+func gitFileCommits(root, rel string, follow bool) ([]commitInfo, error) {
 	// %B (raw body) carries the trailers; the record/field separators keep the
 	// multi-line body from being mistaken for structure.
 	format := "--format=%H" + commitFieldSep + "%an" + commitFieldSep + "%ae" +
 		commitFieldSep + "%B" + commitRecordSep
-	cmd := exec.Command("git", "-C", root, "log", format, "--", "./"+filepath.ToSlash(rel))
+	args := []string{"-C", root, "log", format}
+	if follow {
+		args = append(args, "--follow")
+	}
+	args = append(args, "--", "./"+filepath.ToSlash(rel))
+	cmd := exec.Command("git", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

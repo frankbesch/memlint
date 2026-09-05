@@ -19,15 +19,49 @@ const ruleBlocks = "blocks"
 // rewrite on its next run is still unambiguous. A half-deleted marker means the
 // next run rewrites the wrong span, which is exactly the silent drift memlint
 // exists to catch.
+//
+// With mirror = true the content between the markers must also be identical
+// across the listed files — the same agent-owned block embedded in several
+// surfaces. The first listed file is the reference; a file whose block is
+// structurally broken gets its structural finding only, since there is no
+// unambiguous span to compare yet.
 func checkBlocks(r *runner, cfg *config.Blocks) {
+	type block struct {
+		rel     string
+		content string // between the markers, exclusive
+		line    int    // 1-based line of the first content line
+	}
+	var ref *block
 	for _, f := range cfg.Files {
-		checkBlocksFile(r, config.CleanRel(f), cfg.Start, cfg.End)
+		rel := config.CleanRel(f)
+		content, span, ok := checkBlocksFile(r, rel, cfg.Start, cfg.End)
+		if !ok || !cfg.Mirror {
+			continue
+		}
+		b := &block{rel: rel, content: content[span[0]:span[1]], line: lineAt(content, span[0])}
+		if ref == nil {
+			ref = b
+			continue
+		}
+		if b.content == ref.content {
+			continue
+		}
+		line, was, now := firstDivergentLine([]byte(ref.content), []byte(b.content))
+		r.add(Finding{
+			Rule: ruleBlocks, Code: "blocks/content-differ", Severity: SeverityRed,
+			Path: b.rel, RelatedPath: ref.rel, Line: b.line + line - 1,
+			Message: fmt.Sprintf("ownership block content differs from %s", ref.rel),
+			Detail:  fmt.Sprintf("%s line %d: %s\n%s line %d: %s", ref.rel, ref.line+line-1, was, b.rel, b.line+line-1, now),
+		})
 	}
 }
 
-func checkBlocksFile(r *runner, rel, start, end string) {
-	abs, ok := r.resolve(rel)
-	if !ok {
+// checkBlocksFile reports the file's structural state. On a well-formed block
+// it returns the content and the [start, end) byte span between the markers,
+// with ok true; anything else has already been reported.
+func checkBlocksFile(r *runner, rel, start, end string) (content string, span [2]int, ok bool) {
+	abs, resolved := r.resolve(rel)
+	if !resolved {
 		r.red(ruleBlocks, "blocks/escape", rel, "path escapes the repository root")
 		return
 	}
@@ -45,7 +79,7 @@ func checkBlocksFile(r *runner, rel, start, end string) {
 	}
 	r.mark(rel)
 
-	content := string(data)
+	content = string(data)
 	starts := markerOffsets(content, start)
 	ends := markerOffsets(content, end)
 
@@ -95,7 +129,16 @@ func checkBlocksFile(r *runner, rel, start, end string) {
 			Message: "ownership block malformed: end marker precedes start marker",
 			Detail:  fmt.Sprintf("start marker is on line %d", lineAt(content, starts[0])),
 		})
+	default:
+		// Content starts after the start marker's line ends; a same-line
+		// block has its content between the markers on that line.
+		from := starts[0] + len(start)
+		if nl := strings.IndexByte(content[from:ends[0]], '\n'); nl >= 0 {
+			from += nl + 1
+		}
+		return content, [2]int{from, ends[0]}, true
 	}
+	return content, span, false
 }
 
 // markerOffsets returns the byte offset of every non-overlapping occurrence of

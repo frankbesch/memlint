@@ -138,3 +138,48 @@ func TestMarkerOffsets(t *testing.T) {
 		t.Errorf("overlapping matches must not double-count: got %v", offs)
 	}
 }
+
+func runBlocksMirror(root string, files ...string) Result {
+	return Run(root, &config.Config{Blocks: &config.Blocks{
+		Files: files, Start: blockStart, End: blockEnd, Mirror: true,
+	}})
+}
+
+// mirror = true: the content between the markers must be identical in every
+// listed file; the first listed file is the reference. Text outside the
+// block is free to differ — that is the whole point of an embedded block.
+func TestBlocksMirrorContent(t *testing.T) {
+	same := "<!-- AGENT:START -->\nmode A\nmode B\n<!-- AGENT:END -->\n"
+	root := writeTree(t, map[string]string{
+		"a.md": "# A\n" + same + "prose only in A\n",
+		"b.md": "# B, different outside\n\n" + same,
+		"c.md": "<!-- AGENT:START -->\nmode A\nmode C\n<!-- AGENT:END -->\n",
+	})
+	wantCounts(t, runBlocksMirror(root, "a.md", "b.md"), 0, 0)
+
+	res := runBlocksMirror(root, "a.md", "b.md", "c.md")
+	wantCounts(t, res, 1, 0)
+	f := res.Findings[0]
+	if f.Code != "blocks/content-differ" || f.Path != "c.md" || f.RelatedPath != "a.md" {
+		t.Errorf("got %s %s -> %s", f.Code, f.Path, f.RelatedPath)
+	}
+	if f.Line != 3 {
+		t.Errorf("line should be the first differing line inside c.md, got %d", f.Line)
+	}
+	wantMessage(t, res, "ownership block content differs from a.md")
+
+	// Without mirror, differing content is not a finding (v0.2 behavior).
+	wantCounts(t, runBlocks(root, "a.md", "b.md", "c.md"), 0, 0)
+}
+
+// A structurally broken file gets its structural finding only; content
+// comparison waits until the block is unambiguous.
+func TestBlocksMirrorSkipsMalformed(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a.md": "<!-- AGENT:START -->\nx\n<!-- AGENT:END -->\n",
+		"b.md": "<!-- AGENT:START -->\ny\n",
+	})
+	res := runBlocksMirror(root, "a.md", "b.md")
+	wantCounts(t, res, 1, 0)
+	wantMessage(t, res, "unterminated")
+}

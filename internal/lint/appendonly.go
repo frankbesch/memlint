@@ -92,15 +92,15 @@ func checkAppendOnly(r *runner, cfg *config.AppendOnly) {
 	}
 
 	// Pass 2: the prefix check, header excluded, with the rotation allowance.
-	n := cfg.HeaderLines
 	rotatedInto := map[string]bool{}
 	for _, e := range checked {
+		n := cfg.HeaderFor(e.rel)
 		base := stripHeader(e.baseline, n)
 		cur := stripHeader(e.current, n)
 		if hasAppendOnlyPrefix(cur, base) {
 			continue
 		}
-		if rot, ok := findRotation(base, cur, fresh, n); ok {
+		if rot, ok := findRotation(base, cur, fresh, cfg.HeaderFor); ok {
 			rotatedInto[rot.dst] = true
 			r.mark(rot.dst)
 			r.add(Finding{
@@ -152,7 +152,7 @@ type rotation struct {
 // findRotation locates the span of base that is missing from cur and looks
 // for it, whole-line and verbatim, after the header of each candidate.
 // Candidates are searched in config order; the first hit wins.
-func findRotation(base, cur []byte, candidates []*appendOnlyFile, headerLines int) (rotation, bool) {
+func findRotation(base, cur []byte, candidates []*appendOnlyFile, headerFor func(string) int) (rotation, bool) {
 	span, first, lines, ok := cutSpan(base, cur)
 	if !ok || isBlank(span) {
 		return rotation{}, false
@@ -162,7 +162,7 @@ func findRotation(base, cur []byte, candidates []*appendOnlyFile, headerLines in
 		if c.readErr != nil {
 			continue
 		}
-		if bytes.Contains(lineAligned(stripHeader(c.current, headerLines)), needle) {
+		if bytes.Contains(lineAligned(stripHeader(c.current, headerFor(c.rel))), needle) {
 			return rotation{dst: c.rel, firstLine: first, lines: lines}, true
 		}
 	}

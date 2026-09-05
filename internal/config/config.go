@@ -50,6 +50,11 @@ type AppendOnly struct {
 	// nothing and keeps pre-v0.7 behavior exactly.
 	HeaderLines int `toml:"header_lines"`
 
+	// Headers overrides HeaderLines per file (path = N). Keys must name
+	// listed files. An archive volume with a longer or shorter header than
+	// the live log gets its own window instead of inheriting the shared one.
+	Headers map[string]int `toml:"headers"`
+
 	// BaseRef is runtime state, not configuration: the CLI sets it from
 	// --base after Load. It is deliberately not a TOML key — the right
 	// baseline is invocation-specific (HEAD locally, the base branch in PR
@@ -64,6 +69,11 @@ type Blocks struct {
 	Files []string `toml:"files"`
 	Start string   `toml:"start"`
 	End   string   `toml:"end"`
+
+	// Mirror additionally requires the content between the markers to be
+	// identical in every listed file; the first listed file is the reference.
+	// Text outside the block may differ freely.
+	Mirror bool `toml:"mirror"`
 }
 
 // HumanBrief requires that no commit in a file's git history was authored by
@@ -71,6 +81,11 @@ type Blocks struct {
 type HumanBrief struct {
 	Files        []string `toml:"files"`
 	AgentAuthors []string `toml:"agent_authors"`
+
+	// FollowRenames scans history across renames (git log --follow), so an
+	// agent commit to the brief under an earlier name stays visible. Off by
+	// default: pre-rename history is then a different file, as before.
+	FollowRenames bool `toml:"follow_renames"`
 }
 
 // Pointers checks repo-path-like references found in Files, but only when the
@@ -262,7 +277,33 @@ func (a *AppendOnly) validate() error {
 	if a.HeaderLines < 0 {
 		return fmt.Errorf("header_lines: must be zero or a positive line count, got %d", a.HeaderLines)
 	}
-	return validRelPathList("files", a.Files)
+	if err := validRelPathList("files", a.Files); err != nil {
+		return err
+	}
+	listed := map[string]bool{}
+	for _, f := range a.Files {
+		listed[CleanRel(f)] = true
+	}
+	for k, n := range a.Headers {
+		if !listed[CleanRel(k)] {
+			return fmt.Errorf("headers: %q is not in files", k)
+		}
+		if n < 0 {
+			return fmt.Errorf("headers: %q must be zero or a positive line count, got %d", k, n)
+		}
+	}
+	return nil
+}
+
+// HeaderFor is the header window for rel: the per-file override, else the
+// shared header_lines.
+func (a *AppendOnly) HeaderFor(rel string) int {
+	for k, n := range a.Headers {
+		if CleanRel(k) == rel {
+			return n
+		}
+	}
+	return a.HeaderLines
 }
 
 func (b *Blocks) validate() error {

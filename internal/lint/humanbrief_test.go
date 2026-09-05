@@ -230,3 +230,24 @@ func TestHumanBriefRootInsideLargerRepo(t *testing.T) {
 	wantCounts(t, res, 1, 0)
 	wantMessage(t, res, "human-brief violation")
 }
+
+// follow_renames = true carries history across a rename: an agent commit to
+// the brief under its old name stays visible after a human renames it.
+// Default behavior is unchanged (history before the rename is a different
+// file), pinned here alongside.
+func TestHumanBriefFollowRenames(t *testing.T) {
+	requireGit(t)
+	root := writeTree(t, map[string]string{"BRIEF.md": "scope\n"})
+	git(t, root, "init", "-q", "-b", "main")
+	commitAs(t, root, agentBot, "bot@example.invalid", "agent writes the brief")
+	git(t, root, "mv", "BRIEF.md", "INSTRUCTIONS.md")
+	commitAs(t, root, "Human", "human@example.invalid", "rename")
+
+	wantCounts(t, runHumanBrief(root, []string{agentBot}, "INSTRUCTIONS.md"), 0, 0)
+
+	res := Run(root, &config.Config{HumanBrief: &config.HumanBrief{
+		Files: []string{"INSTRUCTIONS.md"}, AgentAuthors: []string{agentBot}, FollowRenames: true,
+	}})
+	wantCounts(t, res, 1, 0)
+	wantMessage(t, res, "agent-authored commit")
+}

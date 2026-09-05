@@ -141,6 +141,12 @@ start = "<!-- A\nB -->"
 end = "<!-- C -->"`, "single line"},
 
 		{"empty human_brief", "[human_brief]\n", "present but empty"},
+		{"append_only headers key not listed", `[append_only]
+files = ["a.md"]
+headers = { "b.md" = 3 }`, "headers"},
+		{"append_only headers negative", `[append_only]
+files = ["a.md"]
+headers = { "a.md" = -1 }`, "headers"},
 
 		{"empty ids", "[ids]\n", "present but empty"},
 		{"ids bad pattern", `[ids]

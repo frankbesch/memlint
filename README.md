@@ -297,6 +297,10 @@ files = ["memory/decisions.md", "memory/archive/decisions-vol1.md"]
 header_lines = 10   # optional, default 0: the pointer header may change
 ```
 
+`headers = { "path" = N }` overrides the shared count per file, so an
+archive volume with a different header length gets its own window instead
+of leaving body lines inside the shared one. Keys must name listed files.
+
 Without `header_lines` a rotation still passes when the header did not
 change. A rotation is checkable only while it is uncommitted (or against
 `--base`): once committed it is the new baseline like any other change.
@@ -322,6 +326,21 @@ declares it carries a block.
 The config rejects empty, identical, or multiline markers, and markers that
 contain each other, which would make every occurrence of the longer marker also
 count as the shorter one.
+
+**Content mirroring.** `mirror = true` additionally requires the content
+*between* the markers to be identical in every listed file — the same
+agent-owned block embedded in several surfaces. The first listed file is the
+reference; a drifted copy is RED `blocks/content-differ` at its first
+differing line, and text outside the block may differ freely. A file whose
+block is structurally broken gets only its structural finding.
+
+```toml
+[blocks]
+files = ["surfaces/claude-code-modes.md", "surfaces/claude-ai-instructions.md"]
+start = "<!-- modes-block: begin -->"
+end = "<!-- modes-block: end -->"
+mirror = true
+```
 
 Because matching is literal, a file that documents its own markers in prose — an
 example that quotes the `start`/`end` strings — has those occurrences counted
@@ -366,7 +385,9 @@ files = ["INSTRUCTIONS.md"]
 agent_authors = ["noreply@anthropic.com"]
 ```
 
-Renames are not followed; history before a rename belongs to the old path. No
+Renames are not followed by default; history before a rename belongs to the
+old path. `follow_renames = true` walks across renames (`git log --follow`),
+so an agent commit to the brief under an earlier name stays visible. No
 git repository, no commits, or a file no commit touches is **YELLOW**,
 mirroring `[append_only]`: the invariant could not be established, not
 violated.
@@ -594,13 +615,9 @@ whole pipeline locally without publishing anything.
 
 In priority order:
 
-1. **`[blocks]` content mirroring** — an opt-in extension requiring the
-   content *between* marker spans to stay equal across configured file pairs,
-   for repos that keep the same agent-owned block in more than one file.
-2. **Rename-aware `[human_brief]`** — follow a brief across renames instead of
-   treating pre-rename history as a different file.
-
-Shipped: recursive `**` globs in every glob-taking key (v0.8).
+Shipped in v0.8: recursive `**` globs in every glob-taking key; `[blocks]`
+content mirroring (`mirror = true`); rename-aware `[human_brief]`
+(`follow_renames = true`); per-file `headers` for `[append_only]`.
 
 Shipped from this list: anchor-aware `[pointers]` checking and glob support
 in `[pointers]` files (v0.6); self-describing findings — every code documented

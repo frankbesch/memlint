@@ -285,3 +285,14 @@ ruling has reconciled the citations.
 
 **YELLOW** · An id listed under `known` never collides. Remove it — a stale
 allowlist entry would silently excuse a future collision of that id.
+
+## blocks/content-differ
+
+**RED** · The same agent-owned block is embedded in several files and the
+copies have drifted. Re-embed from the canonical one. (`[blocks]` with
+`mirror = true` only.)
+
+The first listed file is the reference; each other file's content between
+its markers is compared byte-wise and the finding sits at the first
+differing line inside that file, with both sides in the detail. Files
+whose block is structurally broken get their structural finding instead.

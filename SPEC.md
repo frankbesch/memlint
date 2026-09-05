@@ -360,3 +360,17 @@ directories: "memory/**/*.md" covers memory/a.md and memory/deep/er/a.md;
 load error. One translator (lint.GlobToRegexp) serves matching and
 validation. [junk] keeps its basename match as well. Removes the v0.1
 non-goal and the v0.6 "** stays rejected" clause.
+
+# --- v0.8 addendum, parts 2-4 (approved 2026-09-05) ---
+
+2. [blocks] mirror = true: content between the markers identical across
+   the listed files; first listed file is the reference; RED
+   blocks/content-differ at the first differing line of the drifted file,
+   related_path = reference, detail shows both lines. Structurally broken
+   files keep their single structural finding and are not compared. Off
+   by default: v0.2 behavior unchanged.
+3. [append_only] headers = { "path" = N }: per-file override of
+   header_lines, for both the file's own prefix check and its role as a
+   rotation destination. Keys must be listed files; negative rejected.
+4. [human_brief] follow_renames = true: git log --follow, so an agent
+   commit under an earlier name stays a violation. Off by default.
