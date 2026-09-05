@@ -680,9 +680,16 @@ whole pipeline locally without publishing anything.
 
 In priority order:
 
+1. **Anchor validation in `[pointers]`** — `pointers/dead-anchor`, reserved
+   since v0.6: check that `file.md#heading` names a heading that exists.
+2. **`[secrets]` entropy detector** — catch high-entropy strings the
+   shape-based patterns miss, with an allowlist for fixtures.
+
 Shipped in v0.8: recursive `**` globs in every glob-taking key; `[blocks]`
 content mirroring (`mirror = true`); rename-aware `[human_brief]`
-(`follow_renames = true`); per-file `headers` for `[append_only]`.
+(`follow_renames = true`); per-file `headers` for `[append_only]`; `[ids]`
+`cited_in` and `ordered`; the `[stamps]` and `[secrets]` rules; `check
+--changed`.
 
 Shipped from this list: anchor-aware `[pointers]` checking and glob support
 in `[pointers]` files (v0.6); self-describing findings — every code documented
