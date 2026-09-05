@@ -482,6 +482,19 @@ are not findings: a withdrawn `D-070` is legitimately absent. Lesson files
 or any second numbering would use their own pattern; one section carries
 one pattern.
 
+**Known collisions.** An append-only log cannot edit either colliding entry
+away, so a reconciled collision would be RED forever. List it under
+`known` and its duplicates report as green INFO (`ids/known-duplicate`),
+the receipt still visible, the run still clean. A known id that never
+collides is YELLOW (`ids/known-unused`): a stale entry would silently
+excuse a future collision.
+
+```toml
+[ids]
+files = ["memory/decisions.md", "memory/archive/*.md"]
+known = ["D-102"]   # reconciled by a later ruling; reported as INFO
+```
+
 `files` resolves like `[pointers]` files: globs match the root-relative
 path only, a glob matching nothing is YELLOW (`ids/no-match`), and a
 missing literal entry is RED (`ids/missing-source`).

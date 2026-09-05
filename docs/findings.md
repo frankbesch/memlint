@@ -271,3 +271,17 @@ files rationale.
 
 **RED** · A configured path points outside the repository, where memlint
 refuses to follow.
+
+## ids/known-duplicate
+
+**INFO** · This id collides, and the collision is on record: it is listed
+under `known` in `[ids]`, so nothing fails. The line stays as the receipt.
+
+The same detection as `ids/duplicate`; only the severity differs. Use
+`known` when an append-only log cannot edit either entry away and a later
+ruling has reconciled the citations.
+
+## ids/known-unused
+
+**YELLOW** · An id listed under `known` never collides. Remove it — a stale
+allowlist entry would silently excuse a future collision of that id.

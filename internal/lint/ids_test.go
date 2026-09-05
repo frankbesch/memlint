@@ -139,3 +139,27 @@ func TestIDsSourceProblems(t *testing.T) {
 		t.Errorf("zero-match glob must be YELLOW ids/no-match:\n%s", dump(res))
 	}
 }
+
+// A known collision — recorded and reconciled by a later ruling — is still
+// reported, as green INFO, so the receipt stays visible without failing the
+// run. A known id that never collides is a stale allowlist entry: YELLOW.
+func TestIDsKnownDuplicateIsInfo(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a.md": "D-101 | a\nD-102 | session A\nD-102 | session B\nD-103 | c\nD-103 | again\n",
+	})
+	res := runIDs(root, &config.IDs{Files: []string{"a.md"}, Known: []string{"D-102", "D-999"}})
+	wantCounts(t, res, 1, 1)
+	if !hasFinding(res, "ids", "a.md", "duplicate id D-103: first at a.md:4") {
+		t.Errorf("unlisted duplicate stays RED:\n%s", dump(res))
+	}
+	if !hasFinding(res, "ids", "D-999", "never collides") {
+		t.Errorf("stale known entry must be YELLOW ids/known-unused:\n%s", dump(res))
+	}
+	infos := infoFindings(res)
+	if len(infos) != 1 || infos[0].Code != "ids/known-duplicate" || infos[0].Line != 3 {
+		t.Fatalf("want one INFO ids/known-duplicate at a.md:3:\n%s", dump(res))
+	}
+	if infos[0].Message != "known duplicate id D-102: first at a.md:2" {
+		t.Errorf("got %q", infos[0].Message)
+	}
+}

@@ -148,6 +148,12 @@ files = ["a.md"]
 pattern = "^(D-\\d{3}"`, "pattern"},
 		{"ids duplicate file", `[ids]
 files = ["a.md", "./a.md"]`, "duplicate entry"},
+		{"ids empty known entry", `[ids]
+files = ["a.md"]
+known = ["D-102", ""]`, "known[1]"},
+		{"ids duplicate known entry", `[ids]
+files = ["a.md"]
+known = ["D-102", "D-102"]`, "known[1]"},
 		{"human_brief without authors", `[human_brief]
 files = ["INSTRUCTIONS.md"]`, "present but empty"},
 		{"human_brief empty author", `[human_brief]

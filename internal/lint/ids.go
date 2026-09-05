@@ -34,6 +34,10 @@ func checkIDs(r *runner, cfg *config.IDs) {
 		line int
 	}
 	first := map[string]at{}
+	known := make(map[string]bool, len(cfg.Known))
+	for _, k := range cfg.Known {
+		known[k] = false // false until a collision is actually seen
+	}
 
 	sources := expandSources(r, ruleIDs, cfg.Files, Finding{
 		Rule: ruleIDs, Code: "ids/no-match", Severity: SeverityYellow,
@@ -63,6 +67,15 @@ func checkIDs(r *runner, cfg *config.IDs) {
 				continue
 			}
 			if prev, dup := first[id]; dup {
+				if _, listed := known[id]; listed {
+					known[id] = true
+					r.add(Finding{
+						Rule: ruleIDs, Code: "ids/known-duplicate", Severity: SeverityInfo,
+						Path: rel, Line: i + 1, RelatedPath: prev.path,
+						Message: fmt.Sprintf("known duplicate id %s: first at %s:%d", id, prev.path, prev.line),
+					})
+					continue
+				}
 				r.add(Finding{
 					Rule: ruleIDs, Code: "ids/duplicate", Severity: SeverityRed,
 					Path: rel, Line: i + 1, RelatedPath: prev.path,
@@ -71,6 +84,16 @@ func checkIDs(r *runner, cfg *config.IDs) {
 				continue
 			}
 			first[id] = at{rel, i + 1}
+		}
+	}
+
+	for _, k := range cfg.Known {
+		if !known[k] {
+			r.add(Finding{
+				Rule: ruleIDs, Code: "ids/known-unused", Severity: SeverityYellow, Path: k,
+				Message: "known id never collides: stale allowlist entry",
+				Detail:  "an entry in known that has no duplicate would silently excuse a future one",
+			})
 		}
 	}
 }

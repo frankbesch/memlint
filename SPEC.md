@@ -338,3 +338,14 @@ by hand, and eleven continuation lines begin with a cited id at column 1
 D-102, first memory/decisions.md:43, again memory/decisions.md:58, the
 receipt D-127 already records. RULED (Frank, 2026-09-05, same day): the
 delimiter form "^(D-\\d{3}) \\|" IS the default; the bare form is opt-in.
+
+# --- v0.7.0 release addendum, part 3: [ids] known (Frank ruled "A", 2026-09-05) ---
+
+Add — [ids] known = [...]: ids whose collision is recorded and reconciled
+(D-127: neither D-102 entry may be edited, so the RED was permanent and
+blocked promptkits' push-ok.sh). A known id's duplicates report as INFO
+ids/known-duplicate ("known duplicate id <id>: first at <path>:<line>"),
+same detection, same anchoring. A known id that never collides is YELLOW
+ids/known-unused — a stale entry would silently excuse a future collision
+of that id (the tokens/no-match posture). Config rejects empty and
+duplicate known entries.

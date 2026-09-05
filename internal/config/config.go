@@ -110,6 +110,13 @@ type Tokens struct {
 type IDs struct {
 	Files   []string `toml:"files"`
 	Pattern string   `toml:"pattern"`
+
+	// Known lists ids whose collision is recorded and reconciled elsewhere
+	// (an append-only log cannot edit either entry away). A known id's
+	// duplicates report as INFO ids/known-duplicate instead of RED, so the
+	// receipt stays visible without failing the run. A known id that never
+	// collides is YELLOW ids/known-unused: a stale allowlist entry.
+	Known []string `toml:"known"`
 }
 
 // DefaultIDPattern is the decisions-log entry form: "D-### | ..." at the
@@ -363,6 +370,16 @@ func (i *IDs) validate() error {
 	// decoding; both mean the default.
 	if _, err := regexp.Compile(i.EffectivePattern()); err != nil {
 		return fmt.Errorf("pattern: invalid regular expression %q: %w", i.Pattern, err)
+	}
+	seen := map[string]bool{}
+	for n, k := range i.Known {
+		if strings.TrimSpace(k) == "" {
+			return fmt.Errorf("known[%d]: must not be empty", n)
+		}
+		if seen[k] {
+			return fmt.Errorf("known[%d]: duplicate id %q", n, k)
+		}
+		seen[k] = true
 	}
 	return nil
 }
