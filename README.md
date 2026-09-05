@@ -516,6 +516,26 @@ files = ["memory/decisions.md", "memory/archive/*.md"]
 known = ["D-102"]   # reconciled by a later ruling; reported as INFO
 ```
 
+**Dead citations.** `cited_in` lists files whose every cited id must exist
+as an entry: dead citations are the id-space version of dead pointers, and
+a renumbered ruling is exactly where one hides. `cite_pattern` (default
+`\b(D-\d{3})\b`) is matched anywhere in a line. The log's own prose is
+not checked unless listed — a log legitimately says "rotate when D-201 is
+written". A dead citation is RED `ids/dead-cite`.
+
+**Order.** `ordered = true` requires each file's entries to be
+non-decreasing by the number in the id, so a paste into the middle of an
+append-only log — invisible to the prefix check once committed — is RED
+`ids/out-of-order`. Gaps and known duplicates are fine.
+
+```toml
+[ids]
+files = ["memory/decisions.md", "memory/archive/*.md"]
+known = ["D-102"]
+cited_in = ["CLAUDE.md", "DASHBOARD.md", "memory/handoff.md"]
+ordered = true
+```
+
 `files` resolves like `[pointers]` files: globs match the root-relative
 path only, a glob matching nothing is YELLOW (`ids/no-match`), and a
 missing literal entry is RED (`ids/missing-source`).

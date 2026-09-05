@@ -374,3 +374,18 @@ non-goal and the v0.6 "** stays rejected" clause.
    rotation destination. Keys must be listed files; negative rejected.
 4. [human_brief] follow_renames = true: git log --follow, so an agent
    commit under an earlier name stays a violation. Off by default.
+
+# --- v0.8 addendum, parts 5-6: [ids] cited_in + ordered (approved 2026-09-05) ---
+
+5. [ids] cited_in = [...] (same resolver), cite_pattern = "\\b(D-\\d{3})\\b"
+   (default): every cited id in those files must be an entry collected
+   from files. RED ids/dead-cite "cited id <id> has no entry" at
+   file:line, one per distinct id per line. files' own prose is not
+   checked unless listed (forward references are legitimate there).
+   Missing literal = RED ids/missing-source; zero-match glob = YELLOW
+   ids/no-match.
+6. [ids] ordered = true: within each file, entries non-decreasing by the
+   number in the id; RED ids/out-of-order "id <id> follows <prev> (line
+   N)". Equal ids are the duplicate rule's business; gaps are fine. Ruled
+   into [ids] rather than [append_only]: the invariant is about ids, and
+   the prefix rule cannot see a committed mid-file paste anyway.

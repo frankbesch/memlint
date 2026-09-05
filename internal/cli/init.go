@@ -211,6 +211,8 @@ func renderConfig(ev evidence) (string, int) {
 # files = ["memory/decisions.md", "memory/archive/*.md"]
 # pattern = "^(D-\\d{3}) \\|"   # default: an entry line; the capture group is the id
 # known = ["D-102"]               # reconciled collisions: INFO, not RED
+# cited_in = ["CLAUDE.md"]        # every cited id must be an entry
+# ordered = true                  # entries must not go backwards
 `)
 
 	return b.String(), enabled

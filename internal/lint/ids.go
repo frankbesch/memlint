@@ -29,11 +29,7 @@ func checkIDs(r *runner, cfg *config.IDs) {
 	// Validated at config load; a compile failure here is a programming error.
 	re := regexp.MustCompile(cfg.EffectivePattern())
 
-	type at struct {
-		path string
-		line int
-	}
-	first := map[string]at{}
+	first := map[string]idAt{}
 	known := make(map[string]bool, len(cfg.Known))
 	for _, k := range cfg.Known {
 		known[k] = false // false until a collision is actually seen
@@ -45,27 +41,26 @@ func checkIDs(r *runner, cfg *config.IDs) {
 		Detail:  "a stale files glob is id coverage that silently never runs",
 	})
 	for _, rel := range sources {
-		abs, ok := r.resolve(rel)
+		data, ok := readIDSource(r, rel)
 		if !ok {
-			r.red(ruleIDs, "ids/escape", rel, "id source escapes the repository root")
 			continue
 		}
-		data, err := os.ReadFile(abs)
-		if err != nil {
-			if os.IsNotExist(err) {
-				r.red(ruleIDs, "ids/missing-source", rel, "id source file does not exist")
-			} else {
-				r.cannotVerify(ruleIDs, rel, err)
-			}
-			continue
-		}
-		r.mark(rel)
 
+		var prevID string
+		prevLine := 0
 		for i, line := range strings.Split(string(data), "\n") {
 			id, ok := lineID(re, line)
 			if !ok {
 				continue
 			}
+			if cfg.Ordered && prevID != "" && idLess(id, prevID) {
+				r.add(Finding{
+					Rule: ruleIDs, Code: "ids/out-of-order", Severity: SeverityRed,
+					Path: rel, Line: i + 1,
+					Message: fmt.Sprintf("id %s follows %s (line %d)", id, prevID, prevLine),
+				})
+			}
+			prevID, prevLine = id, i+1
 			if prev, dup := first[id]; dup {
 				if _, listed := known[id]; listed {
 					known[id] = true
@@ -83,8 +78,12 @@ func checkIDs(r *runner, cfg *config.IDs) {
 				})
 				continue
 			}
-			first[id] = at{rel, i + 1}
+			first[id] = idAt{rel, i + 1}
 		}
+	}
+
+	if len(cfg.CitedIn) > 0 {
+		checkCites(r, cfg, first)
 	}
 
 	for _, k := range cfg.Known {
@@ -111,4 +110,93 @@ func lineID(re *regexp.Regexp, line string) (string, bool) {
 		return line[loc[2]:loc[3]], true
 	}
 	return line[loc[0]:loc[1]], true
+}
+
+// idAt is where an id was first seen.
+type idAt struct {
+	path string
+	line int
+}
+
+// readIDSource reads one resolved source, reporting the usual shapes.
+func readIDSource(r *runner, rel string) ([]byte, bool) {
+	abs, ok := r.resolve(rel)
+	if !ok {
+		r.red(ruleIDs, "ids/escape", rel, "id source escapes the repository root")
+		return nil, false
+	}
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			r.red(ruleIDs, "ids/missing-source", rel, "id source file does not exist")
+		} else {
+			r.cannotVerify(ruleIDs, rel, err)
+		}
+		return nil, false
+	}
+	r.mark(rel)
+	return data, true
+}
+
+// checkCites verifies that every id cited in the cited_in files is an entry.
+// Dead citations are the id-space version of dead pointers: a ruling that
+// was renumbered or never written, still referenced as if it existed.
+func checkCites(r *runner, cfg *config.IDs, entries map[string]idAt) {
+	re := regexp.MustCompile(cfg.EffectiveCitePattern())
+	sources := expandSources(r, ruleIDs, cfg.CitedIn, Finding{
+		Rule: ruleIDs, Code: "ids/no-match", Severity: SeverityYellow,
+		Message: "cited_in glob matched no files",
+		Detail:  "a stale cited_in glob is citation coverage that silently never runs",
+	})
+	for _, rel := range sources {
+		data, ok := readIDSource(r, rel)
+		if !ok {
+			continue
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			seen := map[string]bool{}
+			for _, m := range re.FindAllStringSubmatchIndex(line, -1) {
+				id := line[m[0]:m[1]]
+				if len(m) >= 4 && m[2] >= 0 {
+					id = line[m[2]:m[3]]
+				}
+				if seen[id] {
+					continue
+				}
+				seen[id] = true
+				if _, ok := entries[id]; ok {
+					continue
+				}
+				r.add(Finding{
+					Rule: ruleIDs, Code: "ids/dead-cite", Severity: SeverityRed,
+					Path: rel, Line: i + 1,
+					Message: fmt.Sprintf("cited id %s has no entry", id),
+				})
+			}
+		}
+	}
+}
+
+// idLess orders ids by the number they carry (D-002 < D-010), falling back
+// to string order when either has none.
+func idLess(a, b string) bool {
+	na, oka := idNumber(a)
+	nb, okb := idNumber(b)
+	if oka && okb {
+		return na < nb
+	}
+	return a < b
+}
+
+func idNumber(id string) (int, bool) {
+	n, ok := 0, false
+	for _, c := range id {
+		if c >= '0' && c <= '9' {
+			n = n*10 + int(c-'0')
+			ok = true
+		} else if ok {
+			break
+		}
+	}
+	return n, ok
 }

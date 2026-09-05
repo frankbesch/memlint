@@ -163,3 +163,43 @@ func TestIDsKnownDuplicateIsInfo(t *testing.T) {
 		t.Errorf("got %q", infos[0].Message)
 	}
 }
+
+// cited_in: every id cited anywhere in those files must exist as an entry
+// in files. Cites inside the log itself are not checked — a log's prose
+// legitimately forward-references ("rotate when D-201 is written").
+func TestIDsCitedIn(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"memory/decisions.md": "D-001 | a\nD-002 | b, rotate when D-201 is written\n",
+		"CLAUDE.md":           "See D-001 and D-002.\nAlso D-140 (never ruled) and D-001 again.\n",
+		"DASHBOARD.md":        "| row | D-002 | D-002 |\n",
+	})
+	res := runIDs(root, &config.IDs{Files: []string{"memory/decisions.md"}, CitedIn: []string{"CLAUDE.md", "DASHBOARD.md"}})
+	wantCounts(t, res, 1, 0)
+	f := res.Findings[0]
+	if f.Code != "ids/dead-cite" || f.Path != "CLAUDE.md" || f.Line != 2 {
+		t.Errorf("got %s %s:%d", f.Code, f.Path, f.Line)
+	}
+	wantMessage(t, res, "cited id D-140 has no entry")
+	if res.FilesChecked != 3 {
+		t.Errorf("FilesChecked = %d, want 3", res.FilesChecked)
+	}
+
+	// A missing literal cited_in file is RED, a zero-match glob YELLOW.
+	res = runIDs(root, &config.IDs{Files: []string{"memory/decisions.md"}, CitedIn: []string{"gone.md", "notes/*.md"}})
+	wantCounts(t, res, 1, 1)
+}
+
+// ordered = true: entries within a file must not go backwards.
+func TestIDsOrdered(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a.md": "D-001 | a\nD-003 | gap is fine\nD-003 | equal is fine (known dup)\nD-002 | pasted into the middle\nD-004 | d\n",
+	})
+	res := runIDs(root, &config.IDs{Files: []string{"a.md"}, Ordered: true, Known: []string{"D-003"}})
+	wantCounts(t, res, 1, 0)
+	f := res.Findings[0]
+	if f.Code != "ids/out-of-order" || f.Line != 4 {
+		t.Errorf("got %s at line %d", f.Code, f.Line)
+	}
+	wantMessage(t, res, "id D-002 follows D-003 (line 3)")
+	wantCounts(t, runIDs(root, &config.IDs{Files: []string{"a.md"}, Known: []string{"D-003"}}), 0, 0)
+}

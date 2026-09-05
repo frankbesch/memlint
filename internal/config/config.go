@@ -132,11 +132,35 @@ type IDs struct {
 	// receipt stays visible without failing the run. A known id that never
 	// collides is YELLOW ids/known-unused: a stale allowlist entry.
 	Known []string `toml:"known"`
+
+	// CitedIn lists files (literals and globs) in which every cited id —
+	// CitePattern anywhere in a line — must exist as an entry in Files. The
+	// log's own prose is not checked unless it is listed here too.
+	CitedIn []string `toml:"cited_in"`
+	// CitePattern finds citations; its first capture group (or whole match)
+	// is the id. Default: the D-### form, word-bounded.
+	CitePattern string `toml:"cite_pattern"`
+
+	// Ordered requires entries within each file to be non-decreasing by the
+	// number in the id, so a paste into the middle of a log is caught.
+	Ordered bool `toml:"ordered"`
 }
 
 // DefaultIDPattern is the decisions-log entry form: "D-### | ..." at the
 // start of a line. The delimiter is part of the match on purpose (see IDs).
 const DefaultIDPattern = `^(D-\d{3}) \|`
+
+// DefaultCitePattern is the D-### form anywhere in a line, word-bounded so
+// D-1000 is not read as D-100.
+const DefaultCitePattern = `\b(D-\d{3})\b`
+
+// EffectiveCitePattern is CitePattern, or the default.
+func (i *IDs) EffectiveCitePattern() string {
+	if i.CitePattern == "" {
+		return DefaultCitePattern
+	}
+	return i.CitePattern
+}
 
 // EffectivePattern is Pattern, or the default when none was configured.
 func (i *IDs) EffectivePattern() string {
@@ -411,6 +435,12 @@ func (i *IDs) validate() error {
 	// decoding; both mean the default.
 	if _, err := regexp.Compile(i.EffectivePattern()); err != nil {
 		return fmt.Errorf("pattern: invalid regular expression %q: %w", i.Pattern, err)
+	}
+	if _, err := regexp.Compile(i.EffectiveCitePattern()); err != nil {
+		return fmt.Errorf("cite_pattern: invalid regular expression %q: %w", i.CitePattern, err)
+	}
+	if err := validMixedPathList("cited_in", i.CitedIn); err != nil {
+		return err
 	}
 	seen := map[string]bool{}
 	for n, k := range i.Known {

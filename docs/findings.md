@@ -261,7 +261,7 @@ instead.
 
 ## ids/no-match
 
-**YELLOW** · A `[ids]` files glob matches nothing, so the uniqueness check
+**YELLOW** · A `[ids]` files or cited_in glob matches nothing, so the check
 it declares covers nothing. Rename it to match reality, or remove it.
 
 Globs match root-relative paths only, never basenames — the `[pointers]`
@@ -296,3 +296,24 @@ The first listed file is the reference; each other file's content between
 its markers is compared byte-wise and the finding sits at the first
 differing line inside that file, with both sides in the detail. Files
 whose block is structurally broken get their structural finding instead.
+
+## ids/dead-cite
+
+**RED** · A file cites an id that has no entry — a ruling that was
+renumbered, withdrawn, or never written, still referenced as if it existed.
+Fix the citation. (`[ids]` with `cited_in` only.)
+
+`cite_pattern` (default `\b(D-\d{3})\b`) is matched anywhere in each line
+of the `cited_in` files; each distinct id per line is checked once against
+the entries collected from `files`. The log's own prose is not checked
+unless it is listed under `cited_in` too — a log legitimately says "rotate
+when D-201 is written".
+
+## ids/out-of-order
+
+**RED** · An entry's id is lower than the one before it, so something was
+pasted into the middle of an append-only log rather than appended. Move it
+to the end. (`[ids]` with `ordered = true` only.)
+
+Order is by the number inside the id; equal ids are not out of order
+(that is `ids/duplicate`'s job). Gaps are fine.
