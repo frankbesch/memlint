@@ -420,3 +420,10 @@ counts only changed files. [append_only], [human_brief], [stamps] skip
 unchanged files before their git call. No git / not a repository = exit 2
 (the --base posture: an explicit demand that cannot be honored must not
 silently widen). Output formats and exit codes otherwise unchanged.
+
+# --- v0.9 futures (listed 2026-09-05, not approved for build) ---
+
+1. [pointers] dead-anchor: "file.md#heading" must name a heading that
+   exists in the target (reserved since v0.6).
+2. [secrets] entropy detector: long high-entropy strings the shape-based
+   detectors miss, with an allowlist for fixtures and examples.

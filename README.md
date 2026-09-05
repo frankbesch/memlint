@@ -678,7 +678,7 @@ whole pipeline locally without publishing anything.
 
 ## Roadmap
 
-In priority order:
+v0.9 futures, in priority order:
 
 1. **Anchor validation in `[pointers]`** — `pointers/dead-anchor`, reserved
    since v0.6: check that `file.md#heading` names a heading that exists.
