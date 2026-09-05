@@ -120,3 +120,45 @@ func TestTextColumnsAlignRegardlessOfColor(t *testing.T) {
 		}
 	}
 }
+
+// An INFO finding is rendered green and does not turn a clean run into a
+// red/yellow summary: the run is still clean, and the summary line says so.
+func TestTextInfoFindingKeepsCleanSummary(t *testing.T) {
+	res := lint.Result{RulesRun: 1, FilesChecked: 2, Findings: []lint.Finding{{
+		Rule: "append_only", Code: "append_only/rotated", Severity: lint.SeverityInfo,
+		Path: "memory/decisions.md", RelatedPath: "memory/archive/vol1.md",
+		Message: "rotated → memory/archive/vol1.md (100 lines moved verbatim)",
+	}}}
+	got := render(t, res, false)
+	for _, want := range []string{
+		"append_only  INFO    memory/decisions.md  rotated → memory/archive/vol1.md (100 lines moved verbatim) [append_only/rotated]",
+		"docs: " + DocBase,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output missing %q:\n%s", want, got)
+		}
+	}
+	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	if last := lines[len(lines)-1]; last != "memlint: clean (1 rule, 2 files checked)" {
+		t.Errorf("summary must stay the clean line, got %q", last)
+	}
+	if strings.Contains(got, "counterpart:") {
+		t.Errorf("counterpart line is redundant when the message names it:\n%s", got)
+	}
+	colored := render(t, res, true)
+	if !strings.Contains(colored, ansiGreen+"INFO") {
+		t.Errorf("INFO must be green:\n%q", colored)
+	}
+}
+
+// INFO alongside RED: the red summary is unchanged in shape.
+func TestTextInfoDoesNotChangeRedSummary(t *testing.T) {
+	res := lint.Result{RulesRun: 1, Findings: []lint.Finding{
+		{Rule: "junk", Code: "junk/match", Severity: lint.SeverityRed, Path: "a.tmp", Message: "junk"},
+		{Rule: "append_only", Code: "append_only/rotated", Severity: lint.SeverityInfo, Path: "b.md", Message: "rotated"},
+	}}
+	got := render(t, res, false)
+	if !strings.HasSuffix(got, "memlint: 1 red, 0 yellow\n") {
+		t.Errorf("summary shape must not change, got:\n%s", got)
+	}
+}

@@ -40,6 +40,14 @@ type Mirrors struct {
 type AppendOnly struct {
 	Files []string `toml:"files"`
 
+	// HeaderLines marks the first N lines of every listed file — in the
+	// baseline and in the working copy alike — as the one span that may
+	// change: a live log's pointer header is rewritten at each rotation.
+	// Everything after line N is immutable, or must move verbatim into
+	// another listed file (the rotation allowance). Zero, the default, exempts
+	// nothing and keeps pre-v0.7 behavior exactly.
+	HeaderLines int `toml:"header_lines"`
+
 	// BaseRef is runtime state, not configuration: the CLI sets it from
 	// --base after Load. It is deliberately not a TOML key — the right
 	// baseline is invocation-specific (HEAD locally, the base branch in PR
@@ -209,6 +217,9 @@ func (m *Mirrors) validate() error {
 func (a *AppendOnly) validate() error {
 	if len(a.Files) == 0 {
 		return fmt.Errorf("section is present but empty; remove it to disable the rule, or set files")
+	}
+	if a.HeaderLines < 0 {
+		return fmt.Errorf("header_lines: must be zero or a positive line count, got %d", a.HeaderLines)
 	}
 	return validRelPathList("files", a.Files)
 }

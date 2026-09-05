@@ -24,14 +24,7 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 	c := colorizer(color)
 
 	if len(res.Findings) == 0 {
-		if res.RulesRun == 0 {
-			// Never let an empty config read as a verified repository.
-			_, err := fmt.Fprintln(w, c(ansiGreen, "memlint: clean (no rules enabled)"))
-			return err
-		}
-		_, err := fmt.Fprintln(w, c(ansiGreen, fmt.Sprintf(
-			"memlint: clean (%s, %s checked)",
-			plural(res.RulesRun, "rule"), plural(res.FilesChecked, "file"))))
+		_, err := fmt.Fprintln(w, c(ansiGreen, cleanLine(res)))
 		return err
 	}
 
@@ -79,6 +72,12 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 		return err
 	}
 
+	// INFO findings alone do not change the verdict: the summary is still the
+	// clean line, so a rotation receipt never reads as a failure.
+	if res.Clean() {
+		_, err := fmt.Fprintln(w, c(ansiGreen, cleanLine(res)))
+		return err
+	}
 	red, yellow := res.Red(), res.Yellow()
 	summary := fmt.Sprintf("memlint: %d red, %d yellow", red, yellow)
 	tone := ansiYellow
@@ -87,6 +86,16 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 	}
 	_, err := fmt.Fprintln(w, c(tone, summary))
 	return err
+}
+
+// cleanLine is the summary of a run that violated nothing. An empty config
+// must never read as a verified repository, so it says so.
+func cleanLine(res lint.Result) string {
+	if res.RulesRun == 0 {
+		return "memlint: clean (no rules enabled)"
+	}
+	return fmt.Sprintf("memlint: clean (%s, %s checked)",
+		plural(res.RulesRun, "rule"), plural(res.FilesChecked, "file"))
 }
 
 // location renders the path[:line] column, naming the related path only when
@@ -99,8 +108,11 @@ func location(f lint.Finding) string {
 }
 
 func severityColor(s lint.Severity) string {
-	if s == lint.SeverityRed {
+	switch s {
+	case lint.SeverityRed:
 		return ansiRed
+	case lint.SeverityInfo:
+		return ansiGreen
 	}
 	return ansiYellow
 }

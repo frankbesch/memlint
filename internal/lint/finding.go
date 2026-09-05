@@ -3,7 +3,8 @@ package lint
 import "sort"
 
 // Severity is the weight of a finding. RED means an invariant was evaluated
-// and violated, or could not be evaluated at all. YELLOW is advisory.
+// and violated, or could not be evaluated at all. YELLOW is advisory. INFO
+// is a receipt: something happened that a reader should see, and it passed.
 type Severity string
 
 const (
@@ -11,15 +12,22 @@ const (
 	SeverityRed Severity = "RED"
 	// SeverityYellow marks an advisory finding. YELLOW fails only under --strict.
 	SeverityYellow Severity = "YELLOW"
+	// SeverityInfo marks a verified event worth a line — an append-only log
+	// rotated with its content intact. INFO never fails the run, not even
+	// under --strict, and a run with only INFO findings is still clean.
+	SeverityInfo Severity = "INFO"
 )
 
 // rank orders severities by weight. Sorting on the string would put RED after
 // YELLOW, which is backwards.
 func (s Severity) rank() int {
-	if s == SeverityRed {
+	switch s {
+	case SeverityRed:
 		return 0
+	case SeverityYellow:
+		return 1
 	}
-	return 1
+	return 2
 }
 
 // Finding is one violated or unverifiable invariant.
@@ -52,6 +60,13 @@ func (r Result) Red() int { return r.count(SeverityRed) }
 
 // Yellow counts YELLOW findings.
 func (r Result) Yellow() int { return r.count(SeverityYellow) }
+
+// Info counts INFO findings. They never affect the exit code.
+func (r Result) Info() int { return r.count(SeverityInfo) }
+
+// Clean reports whether nothing was violated: no RED and no YELLOW. INFO
+// findings do not count against it.
+func (r Result) Clean() bool { return r.Red() == 0 && r.Yellow() == 0 }
 
 func (r Result) count(s Severity) int {
 	n := 0

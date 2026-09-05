@@ -9,6 +9,11 @@ in brackets after each message.
 Codes are stable: messages may be reworded, codes may not. Additions are
 non-breaking; renaming or removing one bumps the JSON `schema_version`.
 
+Three severities. **RED** fails the run. **YELLOW** is advisory and fails
+only under `--strict`. **INFO** (green) is a receipt for something memlint
+verified and wants you to see; it never fails the run, and a run with only
+INFO lines still reports clean.
+
 ## unverifiable
 
 **RED** · any rule. memlint was asked to check this file and physically
@@ -79,7 +84,29 @@ file was not checked either way. Commit it to arm the check.
 
 No git repository, or no blob at the chosen ref (a file created after
 `--base` has nothing to have diverged from). YELLOW because the invariant
-could not be established — not because it held.
+could not be established — not because it held. Withdrawn for a file that
+is the destination of a detected rotation (see `append_only/rotated`): the
+moved span is its baseline.
+
+## append_only/rotated
+
+**INFO** · An append-only log was rotated: a block of older entries left
+this file and reappeared, unchanged, in another append-only file that is new
+in this commit. Nothing to fix — this line is the receipt that the move was
+verified. `<src> → <dst> (N lines moved verbatim)`.
+
+Mechanics. The check first strips `header_lines` (default 0) from both the
+baseline and the working copy — the header is the only span that may
+change. If the body no longer begins with its baseline, memlint isolates the
+cut: the baseline lines after the longest shared prefix and before the
+shortest baseline tail the working copy still continues with. That cut,
+whole lines only, must appear verbatim after the header of another file
+listed under `[append_only]` that has no baseline at the ref (untracked, or
+created after `--base`). Candidates are tried in config order; the first hit
+wins and its own no-baseline YELLOW is withdrawn. A cut of only blank lines
+never qualifies. Anything else — an altered or missing moved line, a
+destination that is already committed, or none at all — is the plain
+`append_only/rewritten`.
 
 ## blocks/no-markers
 

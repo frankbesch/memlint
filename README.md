@@ -253,6 +253,49 @@ No baseline is **YELLOW**, not RED: an untracked file, a directory that is not a
 git repository, a repository with no commits, or a missing `git` binary all mean
 the invariant could not be established, not that it was violated.
 
+**Rotation.** A log that only grows eventually gets rotated: the oldest
+entries move verbatim into an archived volume, and the live file keeps the
+rest under a header that now points at the volume. Bytewise that is a
+rewrite, and before v0.7 it was RED — so the rotation commit reset the
+baseline and memlint verified nothing about the move. Now, when a listed
+file no longer begins with its baseline, memlint isolates the **cut span**
+(the baseline lines that are gone, header excluded) and looks for it, whole
+lines and verbatim, after the header of every *other* listed file that has
+no baseline of its own at the ref — untracked, or created after `--base`.
+Found: a green **INFO** line instead of the RED, and the destination's
+no-baseline YELLOW is withdrawn, because the moved span *is* its baseline:
+
+```text
+append_only  INFO    memory/decisions.md:6  rotated → memory/archive/decisions-vol1.md (3 lines moved verbatim) [append_only/rotated]
+    baseline lines 6-8 left memory/decisions.md and appear unchanged in memory/archive/decisions-vol1.md
+docs: https://github.com/frankbesch/memlint/blob/main/docs/findings.md
+memlint: clean (1 rule, 2 files checked)
+```
+
+(That is [testdata/fixture-rotated](testdata/fixture-rotated) with its
+baseline committed.)
+
+Not found — a moved line altered or dropped, the destination already
+committed or not listed — and it is the plain `append_only/rewritten`, as
+before. INFO never fails the run, `--strict` included.
+
+The header is the one part of a live log that legitimately changes.
+`header_lines = N` marks the first N lines of every listed file — baseline
+and working copy alike — as the **only mutable span**; everything after line
+N is immutable or must move verbatim. Pick N to cover the header at its
+longest, and list the archive volumes too, so they are both rotation
+destinations and append-only in their own right:
+
+```toml
+[append_only]
+files = ["memory/decisions.md", "memory/archive/decisions-vol1.md"]
+header_lines = 10   # optional, default 0: the pointer header may change
+```
+
+Without `header_lines` a rotation still passes when the header did not
+change. A rotation is checkable only while it is uncommitted (or against
+`--base`): once committed it is the new baseline like any other change.
+
 ### `[blocks]` — ownership blocks that must stay well-formed · RED
 
 Each listed file must contain exactly one well-formed ownership block: one
@@ -442,6 +485,10 @@ deterministic order:
 }
 ```
 
+`summary.info` appears only when a run carries INFO findings (a detected
+log rotation), so output for a repository with nothing to report is
+unchanged from earlier releases.
+
 ## When a check cannot run
 
 A rule that cannot evaluate an invariant — an unreadable file, a permission
@@ -454,15 +501,18 @@ asked to perform and still reports clean is worse than one that fails loudly.
 ```bash
 go test ./...
 go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 8 red, 4 yellow, exit 1
+./memlint check --no-color testdata/fixture-broken   # 9 red, 4 yellow, exit 1
 ./memlint check --no-color testdata/fixture-clean    # clean, exit 0
 ./memlint check --no-color testdata/fixture-yellow   # yellow only, exit 0
 ```
 
-[testdata/fixture-broken](testdata/fixture-broken) carries eight planted RED
+[testdata/fixture-broken](testdata/fixture-broken) carries nine planted RED
 defects and four planted YELLOW ones, plus every reference form that must **not**
 be reported. The counts are the acceptance test: a rule that starts
 over-reporting or quietly stops reporting breaks it.
+[testdata/fixture-rotated](testdata/fixture-rotated) is an append-only log
+mid-rotation; because a committed file always equals its own HEAD, its test
+builds the git state around it rather than checking the tree as it sits.
 
 memlint runs against itself. `.memlint.toml` at this repo's root enables only
 the rules that genuinely apply here.

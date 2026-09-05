@@ -1,0 +1,20 @@
+# A repository whose append-only log was just rotated: the first three
+# entries moved verbatim into an archived volume, and the live log's header
+# now points at that volume. memlint must report this as INFO
+# append_only/rotated, not RED append_only/rewritten.
+#
+# This fixture is not runnable as a static tree: [append_only] needs a git
+# baseline, and a committed fixture always equals its own HEAD. The test
+# (TestFixtureRotated) builds a temporary repository, commits
+# baseline/decisions.md as memory/decisions.md, then drops in the rotated
+# tree below with the archive left untracked — exactly the state a rotation
+# commit is checked in.
+
+[append_only]
+files = [
+  "memory/decisions.md",
+  "memory/archive/decisions-vol1.md",
+]
+# The first four lines of each file are its header — the only span that may
+# change. Everything after line 4 is immutable, or must move verbatim.
+header_lines = 4

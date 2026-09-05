@@ -81,3 +81,23 @@ func TestWorkflowCommandEscaping(t *testing.T) {
 		t.Errorf("escapeProp: got %q", got)
 	}
 }
+
+// INFO findings are ::notice annotations, and an INFO-only run keeps the
+// clean summary: nothing was violated.
+func TestGitHubInfoIsNotice(t *testing.T) {
+	res := lint.Result{RulesRun: 1, FilesChecked: 2, Findings: []lint.Finding{{
+		Rule: "append_only", Code: "append_only/rotated", Severity: lint.SeverityInfo,
+		Path: "memory/decisions.md", RelatedPath: "memory/archive/vol1.md", Line: 5,
+		Message: "rotated → memory/archive/vol1.md (3 lines moved verbatim)",
+	}}}
+	var b strings.Builder
+	if err := GitHub(&b, res); err != nil {
+		t.Fatal(err)
+	}
+	want := "::notice file=memory/decisions.md,line=5,title=memlint append_only/rotated::" +
+		"rotated → memory/archive/vol1.md (3 lines moved verbatim)\n" +
+		"memlint: clean (1 rule, 2 files checked)\n"
+	if got := b.String(); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}

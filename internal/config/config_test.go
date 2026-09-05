@@ -120,6 +120,9 @@ files = ["/etc/passwd"]`, "must be relative"},
 files = ["../outside.md"]`, "must not escape"},
 		{"duplicate file", `[append_only]
 files = ["a.md", "./a.md"]`, "duplicate path"},
+		{"negative header_lines", `[append_only]
+files = ["a.md"]
+header_lines = -1`, "header_lines"},
 
 		{"empty blocks", "[blocks]\n", "present but empty"},
 		{"blocks without markers", `[blocks]
@@ -235,5 +238,24 @@ func TestCleanRel(t *testing.T) {
 		if got := CleanRel(in); got != want {
 			t.Errorf("CleanRel(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// header_lines is optional: absent means zero, and the struct a pre-v0.7
+// config loads to is unchanged.
+func TestAppendOnlyHeaderLines(t *testing.T) {
+	cfg, err := withConfig(t, "[append_only]\nfiles = [\"a.md\"]\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AppendOnly.HeaderLines != 0 {
+		t.Errorf("absent header_lines must be 0, got %d", cfg.AppendOnly.HeaderLines)
+	}
+	cfg, err = withConfig(t, "[append_only]\nfiles = [\"a.md\"]\nheader_lines = 4\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AppendOnly.HeaderLines != 4 {
+		t.Errorf("got header_lines %d, want 4", cfg.AppendOnly.HeaderLines)
 	}
 }

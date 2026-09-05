@@ -247,3 +247,52 @@ FBOS handoff ran over its 2000 budget for 15 straight wraps while
 fixture-broken: [tokens] gains limit=400 and memory/medium.md
 (250 tokens, between the tiers); big.md (420) upgrades to RED.
 Acceptance becomes 9 red + 4 yellow.
+
+# --- v0.7.0 release addendum, part 1: rotation-aware [append_only] (approved 2026-09-05) ---
+# Source: promptkits D-126 (decisions-log rotation) and D-127. Tags stop at
+# v0.6.0; the v0.7 and v0.8 addenda above shipped untagged and land in the
+# same v0.7.0 release as this one.
+
+Motivation: FBOS rotated memory/decisions.md — D-001–D-100 moved verbatim
+to memory/archive/20260905-decisions-vol1-D001-D100.md, the live file kept
+D-101+ under a header pointing at the volume. append_only diffs the working
+file against HEAD, so the rotation commit was RED append_only/rewritten,
+committing it reset the baseline, and memlint verified nothing about the
+move.
+
+Add — header_lines = N (optional, default 0) in [append_only]. The first N
+lines of every listed file, in the baseline and the working copy alike, are
+the ONLY mutable span. Everything after line N is immutable, or must move
+verbatim (below). Divergence line numbers stay full-file. Negative is a
+load error. N = 0 is byte-for-byte the pre-v0.7 check.
+
+Add — the moved-to allowance. When a listed file no longer begins with its
+(header-stripped) baseline, before reporting RED: take the cut span — the
+baseline lines after the longest shared leading run and before the shortest
+line-aligned baseline tail the working copy still continues with (same
+trailing-newline tolerance) — and search every OTHER listed file that has
+no baseline at the ref (untracked, or new after --base) for that span
+appearing verbatim, whole-line, after that file's own header. Candidates in
+config order, first hit wins. Found: no finding on the rewritten file, one
+INFO append_only/rotated "<src> → <dst> (N lines moved verbatim)" at the
+cut's first line, and the destination's append_only/no-baseline YELLOW is
+withdrawn (the moved span is its baseline; leaving the YELLOW would trip
+every --strict rotation, which defeats the allowance). Not found — altered
+or missing moved line, destination already committed, not listed, or absent
+— the existing RED, unchanged. A cut of only whitespace never qualifies.
+
+Add — INFO severity. Green; never affects the exit code, not under --strict
+either; a run with only INFO findings prints its findings, the docs line,
+and the CLEAN summary line (tail -1 contract unchanged). JSON: severity
+"INFO", summary.info present only when non-zero (schema_version stays 1;
+red/yellow-only runs render byte-identically to v0.6). --format github:
+::notice. Sort rank after YELLOW.
+
+Tests: header_lines exempts header only, full-file line numbers; rotation
+= one INFO, both files counted; rotation without header_lines; allowance
+withdraws (altered, missing, span inside destination header, destination
+not listed, no destination); destination must be new at baseline; the
+non-target untracked file keeps its YELLOW; rotation under --base;
+whole-line matching. Fixture: testdata/fixture-rotated (baseline/ +
+rotated tree; TestFixtureRotated builds the git state). fixture-broken
+unchanged: 9 red + 4 yellow.

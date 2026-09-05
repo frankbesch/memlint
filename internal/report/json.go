@@ -25,9 +25,14 @@ type jsonFinding struct {
 	DocURL string `json:"doc_url"`
 }
 
+// jsonSummary carries the counts. info was added in v0.7 and is omitted when
+// zero, so a repository with nothing to report renders byte-for-byte as it
+// did before; consumers that only read red and yellow are unaffected, and
+// INFO findings never change either of those. schema_version stays 1.
 type jsonSummary struct {
 	Red    int `json:"red"`
 	Yellow int `json:"yellow"`
+	Info   int `json:"info,omitempty"`
 }
 
 // JSON writes the result as a stable, never-colored JSON document. Findings
@@ -43,6 +48,6 @@ func JSON(w io.Writer, res lint.Result) error {
 	return enc.Encode(jsonOutput{
 		SchemaVersion: SchemaVersion,
 		Findings:      findings,
-		Summary:       jsonSummary{Red: res.Red(), Yellow: res.Yellow()},
+		Summary:       jsonSummary{Red: res.Red(), Yellow: res.Yellow(), Info: res.Info()},
 	})
 }
