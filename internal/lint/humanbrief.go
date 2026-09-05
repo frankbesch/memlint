@@ -46,7 +46,9 @@ func checkHumanBrief(r *runner, cfg *config.HumanBrief) {
 		return
 	}
 	for _, f := range cfg.Files {
-		checkHumanBriefFile(r, config.CleanRel(f), cfg.AgentAuthors, cfg.FollowRenames)
+		if rel := config.CleanRel(f); !r.unchanged(rel) {
+			checkHumanBriefFile(r, rel, cfg.AgentAuthors, cfg.FollowRenames)
+		}
 	}
 }
 

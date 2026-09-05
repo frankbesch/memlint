@@ -65,6 +65,8 @@ Flags (must precede [path]):
   --strict             treat YELLOW findings as failures
   --base <ref>         compare [append_only] files against <ref> instead of
                        HEAD (e.g. origin/main in pull-request CI)
+  --changed            report only findings that touch files changed since
+                       HEAD (modified, staged, or untracked); needs git
   --format text|json|github
                        output format (default "text"); "github" emits
                        GitHub Actions annotations
@@ -112,6 +114,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	format := fs.String("format", "text", `output format: "text", "json", or "github"`)
 	noColor := fs.Bool("no-color", false, "disable ANSI color")
 	base := fs.String("base", "", "compare [append_only] files against this git ref instead of HEAD")
+	changed := fs.Bool("changed", false, "report only findings touching files changed since HEAD")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -177,7 +180,18 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		return ExitUsage
 	}
 
-	res := lint.Run(absRoot, cfg)
+	var changedSet map[string]bool
+	if *changed {
+		// Like --base: an explicit narrowing that cannot be honored must
+		// refuse, not silently widen back to a full run.
+		changedSet, err = lint.ChangedFiles(absRoot)
+		if err != nil {
+			fmt.Fprintf(stderr, "memlint: %v\n", err)
+			return ExitUsage
+		}
+	}
+
+	res := lint.RunChanged(absRoot, cfg, changedSet)
 
 	switch *format {
 	case "json":

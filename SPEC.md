@@ -408,3 +408,15 @@ non-goal and the v0.6 "** stays rejected" clause.
    shown)" — the value is never echoed. Zero-match glob = YELLOW
    secrets/no-match. Source: D-057 / FF-010 tripwire; --changed (part 9)
    makes it a pre-commit check.
+
+# --- v0.8 addendum, part 9: --changed (approved 2026-09-05) ---
+
+memlint check --changed [path]: changed = `git diff --name-only --relative
+HEAD -- .` ∪ `git ls-files --others --exclude-standard -- .`, relative to
+the memlint root. Every rule runs (cross-file logic intact), then findings
+are kept only when path or related_path is in the set, or the path is not
+an existing file (config-level: no-match globs, known-unused). FilesChecked
+counts only changed files. [append_only], [human_brief], [stamps] skip
+unchanged files before their git call. No git / not a repository = exit 2
+(the --base posture: an explicit demand that cannot be honored must not
+silently widen). Output formats and exit codes otherwise unchanged.

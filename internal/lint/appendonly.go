@@ -63,6 +63,9 @@ func checkAppendOnly(r *runner, cfg *config.AppendOnly) {
 	var checked, fresh []*appendOnlyFile
 	for _, f := range cfg.Files {
 		rel := config.CleanRel(f)
+		if r.unchanged(rel) {
+			continue
+		}
 		abs, ok := r.resolve(rel)
 		if !ok {
 			r.red(ruleAppendOnly, "append_only/escape", rel, "path escapes the repository root")

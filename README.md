@@ -104,12 +104,20 @@ memlint: clean (6 rules, 9 files checked)
 |------|--------|
 | `--strict` | YELLOW findings also fail the run |
 | `--base <ref>` | compare `[append_only]` files against `<ref>` instead of `HEAD` |
+| `--changed` | report only findings that touch files changed since `HEAD` (modified, staged, or untracked) |
 | `--format text\|json\|github` | output format, default `text`; `github` emits GitHub Actions annotations |
 | `--no-color` | disable ANSI color (also honored: `NO_COLOR`) |
 | `-h`, `--help` | usage |
 
 `memlint --version` (top-level, before any command) prints the version and
 exits 0.
+
+`--changed` is the short-wrap mode: every rule still runs, but only findings
+whose file or counterpart changed since `HEAD` are reported, only those
+files count as checked, and rules that pay a git call per file skip the
+rest. Config-level findings — a glob that matches nothing — still surface,
+because dropping one would be a silent skip. Like `--base`, it refuses with
+exit 2 outside a git repository rather than quietly running everything.
 
 Flags must come **before** the path. `memlint check . --strict` is refused with
 an error rather than silently ignoring `--strict`, which is what the standard

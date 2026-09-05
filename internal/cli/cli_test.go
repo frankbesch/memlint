@@ -516,3 +516,15 @@ func TestDefaultPathIsCurrentDirectory(t *testing.T) {
 		t.Errorf("got %q", out)
 	}
 }
+
+// --changed on a directory that is not a git repository is a usage error:
+// an explicit narrowing demand that cannot be honored must not silently
+// widen back to a full run.
+func TestChangedFlagNeedsGit(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".memlint.toml"), []byte("[junk]\nglobs = [\"*.tmp\"]\n"), 0o644)
+	got := run(t, nil, "check", "--changed", dir)
+	if got.code != 2 || !strings.Contains(got.stderr, "--changed") {
+		t.Errorf("exit %d, stderr %q", got.code, got.stderr)
+	}
+}

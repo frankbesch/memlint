@@ -32,6 +32,9 @@ func checkStamps(r *runner, cfg *config.Stamps) {
 		Message: "files glob matched no files",
 		Detail:  "a stale files glob is stamp coverage that silently never runs",
 	}) {
+		if r.unchanged(rel) {
+			continue
+		}
 		abs, ok := r.resolve(rel)
 		if !ok {
 			r.red(ruleStamps, "stamps/escape", rel, "path escapes the repository root")

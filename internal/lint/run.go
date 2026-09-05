@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
@@ -25,7 +26,18 @@ import (
 // Run evaluates every enabled rule against root. root must already exist; the
 // caller is responsible for that startup check.
 func Run(root string, cfg *config.Config) Result {
+	return RunChanged(root, cfg, nil)
+}
+
+// RunChanged is Run narrowed to changed: only findings whose path or
+// counterpart is in the set survive, and only those files count as checked.
+// Findings that name no file — a glob that matched nothing, a stale known
+// id — survive regardless: dropping a config-level finding would be a
+// silent skip. Rules that pay a git call per file skip unchanged ones
+// outright. nil means no narrowing.
+func RunChanged(root string, cfg *config.Config, changed map[string]bool) Result {
 	r := newRunner(root)
+	r.changed = changed
 
 	if cfg.Mirrors != nil {
 		checkMirrors(r, cfg.Mirrors)
@@ -58,12 +70,70 @@ func Run(root string, cfg *config.Config) Result {
 		checkSecrets(r, cfg.Secrets)
 	}
 
+	if changed != nil {
+		kept := r.findings[:0]
+		for _, f := range r.findings {
+			if changed[f.Path] || (f.RelatedPath != "" && changed[f.RelatedPath]) || !r.isFile(f.Path) {
+				kept = append(kept, f)
+			}
+		}
+		r.findings = kept
+		for rel := range r.checked {
+			if !changed[rel] {
+				delete(r.checked, rel)
+			}
+		}
+	}
+
 	sortFindings(r.findings)
 	return Result{
 		Findings:     r.findings,
 		RulesRun:     cfg.RuleCount(),
 		FilesChecked: len(r.checked),
 	}
+}
+
+// isFile reports whether rel names an existing regular file under root — the
+// test that separates a per-file finding from a config-level one.
+func (r *runner) isFile(rel string) bool {
+	abs, ok := r.resolve(rel)
+	if !ok {
+		return false
+	}
+	info, err := os.Stat(abs)
+	return err == nil && info.Mode().IsRegular()
+}
+
+// unchanged reports whether rel can be skipped under --changed. Only rules
+// with a per-file cost (a git call) consult it; the rest run fully and are
+// filtered afterwards, which keeps their cross-file logic intact.
+func (r *runner) unchanged(rel string) bool {
+	return r.changed != nil && !r.changed[rel]
+}
+
+// ChangedFiles lists root-relative paths that differ from HEAD (staged or
+// not) plus untracked files, for --changed. Paths are relative to root even
+// when root is a subdirectory of the repository.
+func ChangedFiles(root string) (map[string]bool, error) {
+	if _, err := exec.LookPath("git"); err != nil {
+		return nil, fmt.Errorf("cannot compute --changed: git executable not found in PATH")
+	}
+	set := map[string]bool{}
+	for _, args := range [][]string{
+		{"diff", "--name-only", "--relative", "HEAD", "--", "."},
+		{"ls-files", "--others", "--exclude-standard", "--", "."},
+	} {
+		out, err := gitOut(root, args...)
+		if err != nil {
+			return nil, fmt.Errorf("cannot compute --changed: %s", err)
+		}
+		for _, line := range strings.Split(out, "\n") {
+			if line = strings.TrimSpace(line); line != "" {
+				set[filepath.ToSlash(line)] = true
+			}
+		}
+	}
+	return set, nil
 }
 
 type runner struct {
@@ -76,6 +146,8 @@ type runner struct {
 
 	findings []Finding
 	checked  map[string]struct{}
+	// changed narrows the run (--changed); nil means everything.
+	changed map[string]bool
 }
 
 func newRunner(root string) *runner {
