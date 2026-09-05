@@ -389,10 +389,10 @@ reference to the same file deduplicate to one finding, and whether the anchor
 itself resolves to a heading is not yet checked. More than one `#` is not a
 path+anchor and is skipped whole.
 
-A `files` entry containing glob metacharacters (`*`, `?`, `[`) is a pattern
-matched against the root-relative path — never the basename, for the same
-reason as `[tokens]` watch globs: a source list is a statement about specific
-files. A glob matching nothing is **YELLOW** (`pointers/no-match`), a declared
+A `files` entry containing glob metacharacters (`*`, `?`, `[`, `**`) is a
+pattern matched against the root-relative path — never the basename, for the
+same reason as `[tokens]` watch globs: a source list is a statement about
+specific files. A glob matching nothing is **YELLOW** (`pointers/no-match`), a declared
 coverage that silently never runs; a missing *literal* entry stays **RED**.
 
 Skipped entirely:
@@ -509,9 +509,11 @@ entry format uniform. A log with another shape sets its own pattern.
 
 ### Glob semantics
 
-`*` matches within a single path segment and does not cross `/`. Recursive `**`
-is not supported in v0.1 and is rejected at config load rather than being
-silently misinterpreted.
+`*` and `?` match within a single path segment and never cross `/`. A
+whole-segment `**` matches zero or more directories: `memory/**/*.md` covers
+`memory/a.md` and `memory/deep/er/a.md`, `memory/**` covers everything
+under `memory/`, `**/*.tmp` covers the tree. `**` inside a segment (`a**b`)
+is rejected at config load rather than silently misread.
 
 ### Path safety
 
@@ -592,13 +594,13 @@ whole pipeline locally without publishing anything.
 
 In priority order:
 
-1. **Recursive `**` globs** — also what lets `[tokens]` watch and `[pointers]`
-   files cover nested trees without enumerating them.
-2. **`[blocks]` content mirroring** — an opt-in extension requiring the
+1. **`[blocks]` content mirroring** — an opt-in extension requiring the
    content *between* marker spans to stay equal across configured file pairs,
    for repos that keep the same agent-owned block in more than one file.
-3. **Rename-aware `[human_brief]`** — follow a brief across renames instead of
+2. **Rename-aware `[human_brief]`** — follow a brief across renames instead of
    treating pre-rename history as a different file.
+
+Shipped: recursive `**` globs in every glob-taking key (v0.8).
 
 Shipped from this list: anchor-aware `[pointers]` checking and glob support
 in `[pointers]` files (v0.6); self-describing findings — every code documented

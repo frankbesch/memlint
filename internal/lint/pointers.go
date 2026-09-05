@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"regexp"
 	"strings"
 
@@ -308,7 +307,7 @@ func expandSources(r *runner, rule string, files []string, noMatch Finding) []st
 			return nil
 		}
 		for _, g := range globs {
-			if ok, err := path.Match(g, rel); err == nil && ok {
+			if globMatch(g, rel) {
 				matched[g] = true
 				if !seen[rel] {
 					seen[rel] = true

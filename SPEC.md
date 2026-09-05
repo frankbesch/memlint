@@ -349,3 +349,14 @@ same detection, same anchoring. A known id that never collides is YELLOW
 ids/known-unused — a stale entry would silently excuse a future collision
 of that id (the tokens/no-match posture). Config rejects empty and
 duplicate known entries.
+
+# --- v0.8 addendum, part 1: recursive ** globs (approved 2026-09-05) ---
+
+Every glob-taking key ([junk] globs, [tokens] watch, [pointers] files,
+[ids] files) accepts "**" as a WHOLE path segment matching zero or more
+directories: "memory/**/*.md" covers memory/a.md and memory/deep/er/a.md;
+"memory/**" covers everything under memory/; "**/*.tmp" covers the tree.
+"*" and "?" still never cross "/". "**" inside a segment ("a**b") is a
+load error. One translator (lint.GlobToRegexp) serves matching and
+validation. [junk] keeps its basename match as well. Removes the v0.1
+non-goal and the v0.6 "** stays rejected" clause.

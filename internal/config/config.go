@@ -385,7 +385,8 @@ func (i *IDs) validate() error {
 }
 
 // IsGlob reports whether a configured entry is a pattern rather than a
-// literal path. The metacharacter set is filepath.Match's.
+// literal path. The metacharacter set is filepath.Match's, plus ** as a
+// whole-segment recursive wildcard.
 func IsGlob(s string) bool {
 	return strings.ContainsAny(s, "*?[")
 }
@@ -459,14 +460,18 @@ func validGlobList(field string, globs []string) error {
 }
 
 func validGlob(g string) error {
-	switch {
-	case g == "":
+	if g == "" {
 		return fmt.Errorf("must not be empty")
-	case strings.Contains(g, "**"):
-		return fmt.Errorf("recursive ** globs are not supported yet: %q", g)
 	}
-	if _, err := filepath.Match(g, "probe"); err != nil {
-		return fmt.Errorf("invalid glob %q: %w", g, err)
+	// ** is a whole-segment wildcard (zero or more directories). Inside a
+	// segment it would be ambiguous — "a**b" is not "a*b" — so it is refused.
+	for _, seg := range strings.Split(g, "/") {
+		if strings.Contains(seg, "**") && seg != "**" {
+			return fmt.Errorf("invalid glob %q: ** must be a whole path segment", g)
+		}
+		if _, err := filepath.Match(strings.ReplaceAll(seg, "**", "*"), "probe"); err != nil {
+			return fmt.Errorf("invalid glob %q: %w", g, err)
+		}
 	}
 	return nil
 }

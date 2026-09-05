@@ -162,13 +162,11 @@ func (r *runner) relSlash(abs string) string {
 func matchGlobs(globs []string, rel string, wantBase bool) (string, bool) {
 	base := path.Base(rel)
 	for _, g := range globs {
-		if ok, err := path.Match(g, rel); err == nil && ok {
+		if globMatch(g, rel) {
 			return g, true
 		}
-		if wantBase {
-			if ok, err := path.Match(g, base); err == nil && ok {
-				return g, true
-			}
+		if wantBase && globMatch(g, base) {
+			return g, true
 		}
 	}
 	return "", false

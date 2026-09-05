@@ -109,8 +109,8 @@ limit = 5`, "greater than budget"},
 
 		{"invalid glob", `[junk]
 globs = ["[unclosed"]`, "invalid glob"},
-		{"recursive glob", `[junk]
-globs = ["**/*.tmp"]`, "not supported"},
+		{"** inside a segment", `[junk]
+globs = ["a**b/*.tmp"]`, "whole path segment"},
 		{"duplicate glob", `[junk]
 globs = ["*.tmp", "*.tmp"]`, "duplicate glob"},
 
@@ -175,9 +175,6 @@ roots = ["memory/notes"]`, "single path segment"},
 		{"duplicate root", `[pointers]
 files = ["a.md"]
 roots = ["memory", "memory"]`, "duplicate root"},
-		{"recursive glob in pointer files", `[pointers]
-files = ["memory/**/*.md"]
-roots = ["memory"]`, "not supported"},
 		{"invalid glob in pointer files", `[pointers]
 files = ["[unclosed"]
 roots = ["memory"]`, "invalid glob"},
@@ -291,5 +288,16 @@ func TestIDsPatternDefault(t *testing.T) {
 	}
 	if cfg.IDs.EffectivePattern() != `^(L-\d+)` {
 		t.Errorf("got pattern %q", cfg.IDs.EffectivePattern())
+	}
+}
+
+// Recursive ** is a whole-segment wildcard since v0.8.
+func TestRecursiveGlobsAccepted(t *testing.T) {
+	cfg, err := withConfig(t, "[junk]\nglobs = [\"**/*.tmp\", \"memory/**\", \"a/**/b/*.md\"]\n")
+	if err != nil {
+		t.Fatalf("** globs must load: %v", err)
+	}
+	if len(cfg.Junk.Globs) != 3 {
+		t.Errorf("got %d globs", len(cfg.Junk.Globs))
 	}
 }

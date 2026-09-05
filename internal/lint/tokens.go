@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"unicode/utf8"
 
@@ -39,7 +38,7 @@ func checkTokens(r *runner, cfg *config.Tokens) {
 		}
 		any := false
 		for _, g := range cfg.Watch {
-			if ok, err := path.Match(g, rel); err == nil && ok {
+			if globMatch(g, rel) {
 				matched[g] = true
 				any = true
 			}
