@@ -421,12 +421,14 @@ unchanged files before their git call. No git / not a repository = exit 2
 (the --base posture: an explicit demand that cannot be honored must not
 silently widen). Output formats and exit codes otherwise unchanged.
 
-# --- v0.9 futures (listed 2026-09-05, not approved for build) ---
+# --- v0.9 futures (listed 2026-09-05) ---
 
-1. [pointers] dead-anchor: "file.md#heading" must name a heading that
-   exists in the target (reserved since v0.6).
+1. [pointers] dead-anchor — APPROVED for build 2026-09-08 (FBOS D-136);
+   see v0.9 addendum part 2 below. Not yet built.
 2. [secrets] entropy detector: long high-entropy strings the shape-based
-   detectors miss, with an allowlist for fixtures and examples.
+   detectors miss, with an allowlist for fixtures and examples. NOT
+   approved (09-08): wait for an allowlist tuned on the real corpus, else
+   it floods every wrap with yellows.
 
 # --- v0.9 addendum, part 1: tree fingerprint (Frank ruled 2026-09-08) ---
 # Source: Paper Forge PF-0106 (Graft, NanoNets): every query fingerprints
@@ -472,3 +474,16 @@ G4 CHECK gofmt -l is empty, go vet clean, go test ./... passes, and
    --format json summary.tree equals the fingerprint command's output.
 G5 CHECK `check --strict .` on promptkits EXPECT under 1.0 s wall
    (baseline 0.56 s) and a fingerprint identical across two runs.
+
+# --- v0.9 addendum, part 2: [pointers] dead-anchor (approved 2026-09-08, D-136; build pending) ---
+
+A reference of the form "file.md#anchor" resolves the file today and
+ignores the anchor (reserved since v0.6). Dead-anchor makes the anchor
+load-bearing: the target markdown must contain a heading whose GitHub-style
+slug equals the anchor (lowercase, spaces to hyphens, punctuation dropped,
+duplicate headings suffixed -1, -2), or an explicit HTML anchor
+(<a id="..."> / <a name="...">). Missing = RED pointers/dead-anchor with
+the target path as related_path and the nearest heading slugs in detail.
+Only .md targets are checked; other extensions keep today's file-only
+behavior. Fixture-broken gains one planted dead anchor and one live one.
+Gates declared at build time, D-101.

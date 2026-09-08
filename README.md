@@ -708,6 +708,7 @@ v0.9 futures, in priority order:
 
 1. **Anchor validation in `[pointers]`** — `pointers/dead-anchor`, reserved
    since v0.6: check that `file.md#heading` names a heading that exists.
+   Approved for build 2026-09-08.
 2. **`[secrets]` entropy detector** — catch high-entropy strings the
    shape-based patterns miss, with an allowlist for fixtures.
 
