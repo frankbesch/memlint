@@ -230,7 +230,7 @@ func TestPointersRule(t *testing.T) {
 	t.Run("anchored ref to a live base is silent", func(t *testing.T) {
 		root := writeTree(t, map[string]string{
 			"memory/index.md": "see `memory/live.md#plan`\n",
-			"memory/live.md":  "here\n",
+			"memory/live.md":  "# Live\n\n## Plan\n\nhere\n",
 		})
 		res := Run(root, &config.Config{Pointers: &config.Pointers{
 			Files: []string{"memory/index.md"}, Roots: []string{"memory"},

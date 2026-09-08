@@ -90,7 +90,7 @@ tokens    YELLOW  memory/medium.md     250 estimated tokens exceeds budget of 20
 tokens    YELLOW  notes/missing/*.md   watch glob matched no files [tokens/no-match]
     a stale watch glob is a budget check that silently never runs
 docs: https://github.com/frankbesch/memlint/blob/main/docs/findings.md
-memlint: 9 red, 4 yellow
+memlint: 10 red, 4 yellow
 ```
 
 A clean repository prints one line:
@@ -438,12 +438,15 @@ That is the whole gate: `memory/notes.md` with `roots = ["memory"]` is memlint's
 responsibility, while `reading/daily` is not, because you never told memlint
 that `reading` exists.
 
-Anchored references — `memory/notes.md#section` — are checkable since v0.6:
-the reference splits at a single `#` and the **base file** is what must exist.
-Every skip rule and the roots gate apply to the base, an anchored and a bare
-reference to the same file deduplicate to one finding, and whether the anchor
-itself resolves to a heading is not yet checked. More than one `#` is not a
-path+anchor and is skipped whole.
+Anchored references — `memory/notes.md#section` — split at a single `#`.
+The **base file** must exist (since v0.6; a dead base is one `pointers/dead-ref`
+however many anchors point at it), and since v0.9 the **anchor** must resolve
+when the base is markdown: a heading whose GitHub-style slug equals it, a
+`{#custom-id}` suffix, or an explicit `<a id>`/`<a name>` — otherwise **RED**
+`pointers/dead-anchor`, with the anchors the file does expose in the detail
+line. Headings inside fenced code do not count, and non-markdown targets are
+never anchor-checked. More than one `#` is not a path+anchor and is skipped
+whole.
 
 A `files` entry containing glob metacharacters (`*`, `?`, `[`, `**`) is a
 pattern matched against the root-relative path — never the basename, for the
@@ -677,7 +680,7 @@ asked to perform and still reports clean is worse than one that fails loudly.
 ```bash
 go test ./...
 go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 9 red, 4 yellow, exit 1
+./memlint check --no-color testdata/fixture-broken   # 10 red, 4 yellow, exit 1
 ./memlint check --no-color testdata/fixture-clean    # clean, exit 0
 ./memlint check --no-color testdata/fixture-yellow   # yellow only, exit 0
 ./memlint check --no-color testdata/fixture-dupids   # 2 red (ids/duplicate), exit 1
@@ -706,13 +709,11 @@ whole pipeline locally without publishing anything.
 
 v0.9 futures, in priority order:
 
-1. **Anchor validation in `[pointers]`** — `pointers/dead-anchor`, reserved
-   since v0.6: check that `file.md#heading` names a heading that exists.
-   Approved for build 2026-09-08.
-2. **`[secrets]` entropy detector** — catch high-entropy strings the
+1. **`[secrets]` entropy detector** — catch high-entropy strings the
    shape-based patterns miss, with an allowlist for fixtures.
 
-Shipped in v0.9 so far: the tree fingerprint — `memlint fingerprint`, the
+Shipped in v0.9: anchor validation in `[pointers]` (`pointers/dead-anchor`,
+reserved since v0.6); the tree fingerprint — `memlint fingerprint`, the
 `tree …` receipt in every summary, `--expect-tree`, and `summary.tree`.
 
 Shipped in v0.8: recursive `**` globs in every glob-taking key; `[blocks]`

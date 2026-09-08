@@ -6,7 +6,8 @@ Live pointers:
 - [the same note](memory/existing.md) - markdown link form
 - `memory/missing.md` - DEAD, planted defect
 - `docs/nope.md` - DEAD, planted defect
-- `memory/gone-anchored.md#section` - DEAD base file, planted defect (anchored since v0.6)
+- `memory/gone-anchored.md#section` - DEAD base file, planted defect
+- `memory/existing.md#nowhere` - DEAD anchor, planted defect
 
 Must not be reported:
 
@@ -16,4 +17,4 @@ Must not be reported:
 - `reviews/YYYY-MM-DD-<topic>.html` - a placeholder
 - `memory/multi-hash.md#a#b` - more than one "#", not a path+anchor
 - `memory/missing.md#section` - anchored, dedups with the bare ref above
-- `memory/existing.md#overview` - anchored, base file exists
+- `memory/existing.md#overview` - anchor resolves

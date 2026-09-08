@@ -424,7 +424,7 @@ silently widen). Output formats and exit codes otherwise unchanged.
 # --- v0.9 futures (listed 2026-09-05) ---
 
 1. [pointers] dead-anchor — APPROVED for build 2026-09-08 (FBOS D-136);
-   see v0.9 addendum part 2 below. Not yet built.
+   see v0.9 addendum part 2 below. Built 2026-09-08 (v0.9.1).
 2. [secrets] entropy detector: long high-entropy strings the shape-based
    detectors miss, with an allowlist for fixtures and examples. NOT
    approved (09-08): wait for an allowlist tuned on the real corpus, else
@@ -475,7 +475,7 @@ G4 CHECK gofmt -l is empty, go vet clean, go test ./... passes, and
 G5 CHECK `check --strict .` on promptkits EXPECT under 1.0 s wall
    (baseline 0.56 s) and a fingerprint identical across two runs.
 
-# --- v0.9 addendum, part 2: [pointers] dead-anchor (approved 2026-09-08, D-136; build pending) ---
+# --- v0.9 addendum, part 2: [pointers] dead-anchor (approved 2026-09-08, D-136; built 2026-09-08) ---
 
 A reference of the form "file.md#anchor" resolves the file today and
 ignores the anchor (reserved since v0.6). Dead-anchor makes the anchor
@@ -487,3 +487,19 @@ the target path as related_path and the nearest heading slugs in detail.
 Only .md targets are checked; other extensions keep today's file-only
 behavior. Fixture-broken gains one planted dead anchor and one live one.
 Gates declared at build time, D-101.
+
+Gates (D-101, declared 2026-09-08 before code):
+G1 CHECK `check --no-color testdata/fixture-broken` EXPECT 10 red, 4 yellow,
+   exit 1, with one RED pointers/dead-anchor on memory/index.md for
+   `memory/existing.md#nowhere` and NO finding for `memory/existing.md#overview`.
+G2 CHECK `check testdata/fixture-clean` EXPECT clean (its
+   `memory/existing.md#notes` resolves to a "## Notes" heading).
+G3 CHECK unit tests for the slug rule EXPECT: case folded, punctuation
+   dropped, spaces to hyphens, duplicate headings suffixed -1/-2, headings
+   inside fenced code ignored, `<a id="x">` / `<a name="x">` honored,
+   non-.md targets never checked, anchored ref to a missing base stays
+   pointers/dead-ref only.
+G4 CHECK gofmt -l empty, go vet clean, go test ./... passes; README, CI
+   acceptance step, and cli test all read 10 red, 4 yellow.
+G5 CHECK `check --strict ~/Documents/promptkits` EXPECT clean with no new
+   findings (FBOS pointer sources carry no anchored refs today).

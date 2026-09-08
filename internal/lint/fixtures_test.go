@@ -25,12 +25,12 @@ func runFixture(t *testing.T, name string) Result {
 	return Run(root, cfg)
 }
 
-// The acceptance criterion: fixture-broken has exactly nine planted RED
+// The acceptance criterion: fixture-broken has exactly ten planted RED
 // defects and four planted YELLOW ones. The count is the test -- if a rule
 // starts over-reporting or silently stops reporting, this fails.
 func TestFixtureBroken(t *testing.T) {
 	res := runFixture(t, "fixture-broken")
-	wantCounts(t, res, 9, 4)
+	wantCounts(t, res, 10, 4)
 
 	want := []struct{ rule, path, message string }{
 		{"blocks", "AGENTS.md", "unterminated"},
@@ -41,6 +41,7 @@ func TestFixtureBroken(t *testing.T) {
 		{"pointers", "memory/index.md", "dead reference: memory/missing.md"},
 		{"pointers", "memory/index.md", "dead reference: docs/nope.md"},
 		{"pointers", "memory/index.md", "dead reference: memory/gone-anchored.md does not exist (referenced as memory/gone-anchored.md#section)"},
+		{"pointers", "memory/index.md", `dead anchor: memory/existing.md has no heading or anchor "nowhere"`},
 		{"pointers", "notes/*.md", "files glob matched no files"},
 		{"junk", "notes/scratch.tmp", `junk file matches "*.tmp"`},
 		{"tokens", "memory/big.md", "estimated tokens exceeds hard limit"},
@@ -69,7 +70,7 @@ func TestFixtureBrokenSkipsAreNotReported(t *testing.T) {
 			"example.com",
 			"reviews/",
 			"multi-hash",
-			"memory/existing.md",
+			`"overview"`,
 		} {
 			if strings.Contains(f.Message, skipped) || strings.Contains(f.RelatedPath, skipped) {
 				t.Errorf("reference that must be skipped was reported: %s %s: %s",

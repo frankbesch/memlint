@@ -226,11 +226,11 @@ func TestJSONFormat(t *testing.T) {
 	if doc.SchemaVersion != 1 {
 		t.Errorf("got schema_version %d, want 1", doc.SchemaVersion)
 	}
-	if doc.Summary.Red != 9 || doc.Summary.Yellow != 4 {
-		t.Errorf("got %d red / %d yellow, want 9 / 4", doc.Summary.Red, doc.Summary.Yellow)
+	if doc.Summary.Red != 10 || doc.Summary.Yellow != 4 {
+		t.Errorf("got %d red / %d yellow, want 10 / 4", doc.Summary.Red, doc.Summary.Yellow)
 	}
-	if len(doc.Findings) != 13 {
-		t.Errorf("got %d findings, want 13", len(doc.Findings))
+	if len(doc.Findings) != 14 {
+		t.Errorf("got %d findings, want 14", len(doc.Findings))
 	}
 	// Codes are the stable machine identity of a finding. Every finding must
 	// carry one, in "<rule>/<kind>" form.
@@ -274,7 +274,7 @@ func TestGitHubFormat(t *testing.T) {
 	if strings.Contains(got.stdout, "\033") {
 		t.Error("github output must never contain ANSI escapes")
 	}
-	if !strings.Contains(got.stdout, "memlint: 9 red, 4 yellow") {
+	if !strings.Contains(got.stdout, "memlint: 10 red, 4 yellow") {
 		t.Errorf("missing summary line:\n%s", got.stdout)
 	}
 }

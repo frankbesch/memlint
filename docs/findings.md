@@ -180,6 +180,20 @@ and bare tokens, then checked when their first path segment is in `roots`.
 For anchored references (`memory/notes.md#section`) the base file is what
 was checked. Reported once per source file, at the first occurrence.
 
+## pointers/dead-anchor
+
+**RED** · An anchored reference like `memory/notes.md#setup` points at a file
+that exists but has no heading or anchor called `setup`. Fix the anchor, or
+add the heading. The detail line lists the anchors the target does expose.
+
+Only markdown targets (`.md`, `.markdown`) are checked; other file types keep
+the file-only behavior. An anchor resolves when the target has a heading whose
+GitHub-style slug equals it (lowercase; letters, numbers, spaces, hyphens and
+underscores kept; spaces to hyphens; a repeated heading gets `-1`, `-2`, …), a
+`{#custom-id}` heading suffix, or an explicit `<a id="…">` / `<a name="…">`.
+Headings inside fenced code blocks do not count. Two different anchors on one
+file are two findings; a missing base file stays `pointers/dead-ref` alone.
+
 ## pointers/missing-source
 
 **RED** · A file memlint was told to scan for references is itself missing.

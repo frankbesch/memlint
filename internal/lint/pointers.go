@@ -22,8 +22,8 @@ type Ref struct {
 	// bare ref and an anchored ref to the same file deduplicate to one.
 	Target string
 	// Anchor is the fragment after "#", without the "#". Empty for bare refs.
-	// The anchor is carried for display only; whether the anchor itself
-	// resolves is not yet checked (pointers/dead-anchor is reserved).
+	// Since v0.9 an anchor on a markdown target must name a heading slug or
+	// explicit HTML anchor in that file (pointers/dead-anchor).
 	Anchor string
 	// Line is the 1-based line of the reference's first occurrence.
 	Line int
@@ -76,6 +76,42 @@ func ExtractRefs(src string) []Ref {
 		}
 	}
 	return refs
+}
+
+// ExtractAnchoredRefs is ExtractRefs deduplicated by target+anchor instead of
+// target, and limited to anchored references: the input to the dead-anchor
+// check, where two different anchors on one file are two different claims.
+func ExtractAnchoredRefs(src string) []Ref {
+	var refs []Ref
+	seen := map[string]bool{}
+	for i, line := range strings.Split(src, "\n") {
+		for _, cand := range lineCandidates(line) {
+			ref, ok := normalizeCandidate(cand)
+			if !ok || ref.Anchor == "" {
+				continue
+			}
+			key := ref.Target + "#" + ref.Anchor
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			ref.Line = i + 1
+			refs = append(refs, ref)
+		}
+	}
+	return refs
+}
+
+// checkableAnchoredRefs filters ExtractAnchoredRefs by roots, like CheckableRefs.
+func checkableAnchoredRefs(src string, roots []string) []Ref {
+	rootSet := setOf(roots)
+	var out []Ref
+	for _, ref := range ExtractAnchoredRefs(src) {
+		if _, ok := rootSet[firstSegment(ref.Target)]; ok {
+			out = append(out, ref)
+		}
+	}
+	return out
 }
 
 // CheckableRefs returns the subset of ExtractRefs whose first path segment is
@@ -240,12 +276,15 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 		}
 		r.mark(rel)
 
+		exists := map[string]bool{}
 		for _, ref := range CheckableRefs(string(data), cfg.Roots) {
 			targetAbs, ok := r.resolve(ref.Target)
 			if !ok {
 				continue
 			}
-			if _, err := os.Stat(targetAbs); err != nil {
+			if _, err := os.Stat(targetAbs); err == nil {
+				exists[ref.Target] = true
+			} else {
 				if os.IsNotExist(err) {
 					msg := fmt.Sprintf("dead reference: %s does not exist", ref.Target)
 					if ref.Anchor != "" {
@@ -261,7 +300,60 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 				}
 			}
 		}
+		checkAnchors(r, rel, string(data), cfg.Roots, exists)
 	}
+}
+
+// checkAnchors runs the dead-anchor check for one source file: every anchored
+// reference whose base exists and is markdown must name an anchor that
+// markdown exposes. A dead base is already pointers/dead-ref and is not
+// reported twice. Target files are read once each.
+func checkAnchors(r *runner, rel, src string, roots []string, exists map[string]bool) {
+	cache := map[string]map[string]bool{}
+	for _, ref := range checkableAnchoredRefs(src, roots) {
+		if !exists[ref.Target] || !isMarkdownTarget(ref.Target) {
+			continue
+		}
+		anchors, ok := cache[ref.Target]
+		if !ok {
+			abs, resolved := r.resolve(ref.Target)
+			if !resolved {
+				continue
+			}
+			data, err := os.ReadFile(abs)
+			if err != nil {
+				r.cannotVerify(rulePointers, rel, err)
+				continue
+			}
+			anchors = markdownAnchors(string(data))
+			cache[ref.Target] = anchors
+		}
+		if anchors[ref.Anchor] {
+			continue
+		}
+		r.add(Finding{
+			Rule: rulePointers, Code: "pointers/dead-anchor", Severity: SeverityRed, Path: rel,
+			RelatedPath: ref.Target, Line: ref.Line,
+			Message: fmt.Sprintf("dead anchor: %s has no heading or anchor %q", ref.Target, ref.Anchor),
+			Detail:  anchorHint(anchors),
+		})
+	}
+}
+
+// anchorHint lists the anchors the target does expose, so the fix is one
+// glance away. Capped so a long document does not flood the report.
+func anchorHint(anchors map[string]bool) string {
+	keys := sortedKeys(anchors)
+	if len(keys) == 0 {
+		return "the target has no headings"
+	}
+	const cap_ = 8
+	more := ""
+	if len(keys) > cap_ {
+		more = fmt.Sprintf(" (+%d more)", len(keys)-cap_)
+		keys = keys[:cap_]
+	}
+	return "anchors present: #" + strings.Join(keys, " #") + more
 }
 
 // pointerSources resolves the configured files list — literals kept as-is,
