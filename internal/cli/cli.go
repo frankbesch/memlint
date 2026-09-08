@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 
 	"github.com/frankbesch/memlint/internal/config"
 	"github.com/frankbesch/memlint/internal/lint"
@@ -51,11 +52,16 @@ const usageText = `memlint - invariant checker for file-based agent memory
 
 Usage:
   memlint check [flags] [path]
+  memlint fingerprint [path]
   memlint init [path]
   memlint --version
 
 check evaluates the invariants declared in <path>/.memlint.toml. Path defaults
 to ".". check is read-only: it reports drift and never repairs it.
+
+fingerprint prints the SHA-256 of the tree check would judge (content-based;
+what a commit could contain when git is present, else every file but .git/).
+check's summary carries its first 12 hex as a receipt.
 
 init inspects the repository and writes a commented starter .memlint.toml,
 enabling only rules it found evidence for. It refuses to overwrite an existing
@@ -67,6 +73,8 @@ Flags (must precede [path]):
                        HEAD (e.g. origin/main in pull-request CI)
   --changed            report only findings that touch files changed since
                        HEAD (modified, staged, or untracked); needs git
+  --expect-tree <fp>   RED tree/moved unless the tree's fingerprint starts
+                       with <fp> (full or >=12 hex): the receipt is stale
   --format text|json|github
                        output format (default "text"); "github" emits
                        GitHub Actions annotations
@@ -90,6 +98,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "check":
 		return runCheck(args[1:], stdout, stderr)
+	case "fingerprint":
+		return runFingerprint(args[1:], stdout, stderr)
 	case "init":
 		return runInit(args[1:], stdout, stderr)
 	case "-h", "--help", "help":
@@ -115,6 +125,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	noColor := fs.Bool("no-color", false, "disable ANSI color")
 	base := fs.String("base", "", "compare [append_only] files against this git ref instead of HEAD")
 	changed := fs.Bool("changed", false, "report only findings touching files changed since HEAD")
+	expectTree := fs.String("expect-tree", "", "fail with tree/moved unless the tree fingerprint starts with this")
 
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -191,7 +202,21 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
+	if *expectTree != "" && !isHexPrefix(*expectTree) {
+		fmt.Fprintf(stderr, "memlint: --expect-tree wants 12 to 64 hex characters, got %q\n", *expectTree)
+		return ExitUsage
+	}
+
 	res := lint.RunChanged(absRoot, cfg, changedSet)
+	tree, err := lint.Fingerprint(absRoot)
+	if err != nil {
+		fmt.Fprintf(stderr, "memlint: %v\n", err)
+		return ExitUsage
+	}
+	res.Tree = tree
+	if *expectTree != "" {
+		res.ExpectTree(*expectTree)
+	}
 
 	switch *format {
 	case "json":
@@ -209,6 +234,52 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	if res.Red() > 0 || (*strict && res.Yellow() > 0) {
 		return ExitFindings
 	}
+	return ExitClean
+}
+
+func isHexPrefix(s string) bool {
+	if len(s) < 12 || len(s) > 64 {
+		return false
+	}
+	for _, c := range strings.ToLower(s) {
+		if !strings.ContainsRune("0123456789abcdef", c) {
+			return false
+		}
+	}
+	return true
+}
+
+// runFingerprint prints the tree fingerprint and nothing else, so a script
+// can capture it whole. Read-only, needs no config.
+func runFingerprint(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 1 {
+		fmt.Fprintf(stderr, "memlint: unexpected argument %q\n", args[1])
+		fmt.Fprint(stderr, usageText)
+		return ExitUsage
+	}
+	root := "."
+	if len(args) == 1 {
+		if args[0] == "-h" || args[0] == "--help" {
+			fmt.Fprint(stdout, usageText)
+			return ExitClean
+		}
+		root = args[0]
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		fmt.Fprintf(stderr, "memlint: cannot read target %s: %v\n", root, err)
+		return ExitUsage
+	}
+	if !info.IsDir() {
+		fmt.Fprintf(stderr, "memlint: target %s is not a directory\n", root)
+		return ExitUsage
+	}
+	fp, err := lint.Fingerprint(root)
+	if err != nil {
+		fmt.Fprintf(stderr, "memlint: %v\n", err)
+		return ExitUsage
+	}
+	fmt.Fprintln(stdout, fp)
 	return ExitClean
 }
 

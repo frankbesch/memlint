@@ -56,6 +56,7 @@ as your repo accumulates invariants worth declaring.
 
 ```bash
 memlint check [flags] [path]
+memlint fingerprint [path]
 memlint init [path]
 memlint --version
 ```
@@ -105,6 +106,7 @@ memlint: clean (6 rules, 9 files checked)
 | `--strict` | YELLOW findings also fail the run |
 | `--base <ref>` | compare `[append_only]` files against `<ref>` instead of `HEAD` |
 | `--changed` | report only findings that touch files changed since `HEAD` (modified, staged, or untracked) |
+| `--expect-tree <fp>` | one RED `tree/moved` unless the tree's fingerprint starts with `<fp>` (full or ≥12 hex): the receipt is stale |
 | `--format text\|json\|github` | output format, default `text`; `github` emits GitHub Actions annotations |
 | `--no-color` | disable ANSI color (also honored: `NO_COLOR`) |
 | `-h`, `--help` | usage |
@@ -118,6 +120,29 @@ files count as checked, and rules that pay a git call per file skip the
 rest. Config-level findings — a glob that matches nothing — still surface,
 because dropping one would be a silent skip. Like `--base`, it refuses with
 exit 2 outside a git repository rather than quietly running everything.
+
+### Tree fingerprint
+
+Every `check` summary ends with the first 12 hex of the tree it judged:
+
+```text
+memlint: clean (8 rules, 608 files checked, tree 0951f4c6ddbd)
+```
+
+`memlint fingerprint [path]` prints the full 64-hex value and nothing else.
+It is the SHA-256 over every visible regular file's path, size, and content
+hash, sorted by path — content-based, so a clone, checkout, or `touch` does
+not move it, while one changed byte, one added file, or a config edit does.
+Visible means what a commit could contain when git is present (tracked plus
+untracked-not-ignored); without git, every file under the root except
+`.git/`. `--format json` carries it as `summary.tree`.
+
+The point is the receipt: a checked fact has a shelf life. A wrap that
+records `clean … tree 0951f4c6ddbd` can be held to it later with
+`memlint check --expect-tree 0951f4c6ddbd`, which turns a tree that moved
+in between into one RED `tree/moved` and exit 1. memlint keeps no cache and
+writes nothing; the caller stores the fingerprint. (Pattern borrowed from
+Graft's fingerprint-before-query refresh.)
 
 Flags must come **before** the path. `memlint check . --strict` is refused with
 an error rather than silently ignoring `--strict`, which is what the standard
@@ -630,14 +655,15 @@ deterministic order:
   ],
   "summary": {
     "red": 1,
-    "yellow": 0
+    "yellow": 0,
+    "tree": "0951f4c6ddbde0a7f4eae64b7a32e5913ab43bc7958bcace57e91f815eff1ecb"
   }
 }
 ```
 
 `summary.info` appears only when a run carries INFO findings (a detected
-log rotation), so output for a repository with nothing to report is
-unchanged from earlier releases.
+log rotation). `summary.tree` (v0.9) is the full tree fingerprint; both are
+additive and `schema_version` stays 1.
 
 ## When a check cannot run
 
@@ -684,6 +710,9 @@ v0.9 futures, in priority order:
    since v0.6: check that `file.md#heading` names a heading that exists.
 2. **`[secrets]` entropy detector** — catch high-entropy strings the
    shape-based patterns miss, with an allowlist for fixtures.
+
+Shipped in v0.9 so far: the tree fingerprint — `memlint fingerprint`, the
+`tree …` receipt in every summary, `--expect-tree`, and `summary.tree`.
 
 Shipped in v0.8: recursive `**` globs in every glob-taking key; `[blocks]`
 content mirroring (`mirror = true`); rename-aware `[human_brief]`

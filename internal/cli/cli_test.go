@@ -528,3 +528,53 @@ func TestChangedFlagNeedsGit(t *testing.T) {
 		t.Errorf("exit %d, stderr %q", got.code, got.stderr)
 	}
 }
+
+// G3/G4: the fingerprint command, the receipt in every summary, and
+// --expect-tree turning a stale receipt into one RED finding.
+func TestFingerprintCommandAndExpectTree(t *testing.T) {
+	fp := run(t, nil, "fingerprint", fixture("fixture-clean"))
+	if fp.code != 0 {
+		t.Fatalf("fingerprint exited %d: %s", fp.code, fp.stderr)
+	}
+	tree := strings.TrimSpace(fp.stdout)
+	if len(tree) != 64 {
+		t.Fatalf("fingerprint output %q is not 64 hex", tree)
+	}
+
+	ok := run(t, nil, "check", "--no-color", "--expect-tree", tree[:12], fixture("fixture-clean"))
+	if ok.code != 0 {
+		t.Fatalf("matching --expect-tree exited %d\nstdout:\n%s\nstderr:\n%s", ok.code, ok.stdout, ok.stderr)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(ok.stdout), "tree "+tree[:12]+")") {
+		t.Errorf("clean line lacks the tree receipt: %q", ok.stdout)
+	}
+
+	moved := run(t, nil, "check", "--no-color", "--expect-tree", "000000000000", fixture("fixture-clean"))
+	if moved.code != 1 {
+		t.Fatalf("stale --expect-tree exited %d, want 1\nstdout:\n%s", moved.code, moved.stdout)
+	}
+	if strings.Count(moved.stdout, "RED") != 1 || !strings.Contains(moved.stdout, "[tree/moved]") {
+		t.Errorf("want exactly one RED tree/moved, got:\n%s", moved.stdout)
+	}
+	if !strings.Contains(moved.stdout, "memlint: 1 red, 0 yellow (tree "+tree[:12]+")") {
+		t.Errorf("red summary lacks the tree receipt:\n%s", moved.stdout)
+	}
+
+	bad := run(t, nil, "check", "--expect-tree", "zz", fixture("fixture-clean"))
+	if bad.code != 2 {
+		t.Errorf("non-hex --expect-tree exited %d, want 2", bad.code)
+	}
+
+	js := run(t, nil, "check", "--format", "json", fixture("fixture-clean"))
+	var doc struct {
+		Summary struct {
+			Tree string `json:"tree"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(js.stdout), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Summary.Tree != tree {
+		t.Errorf("json summary.tree %q != fingerprint %q", doc.Summary.Tree, tree)
+	}
+}

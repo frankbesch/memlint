@@ -427,3 +427,48 @@ silently widen). Output formats and exit codes otherwise unchanged.
    exists in the target (reserved since v0.6).
 2. [secrets] entropy detector: long high-entropy strings the shape-based
    detectors miss, with an allowlist for fixtures and examples.
+
+# --- v0.9 addendum, part 1: tree fingerprint (Frank ruled 2026-09-08) ---
+# Source: Paper Forge PF-0106 (Graft, NanoNets): every query fingerprints
+# the working tree before answering, so an answer describes the tree as it
+# is now. FBOS lesson 021 / D-053: a checked fact has a shelf life. memlint
+# runs in ~0.5 s on FBOS, so a skip-if-unchanged cache buys nothing; the
+# adopted idea is the RECEIPT — the verdict names the tree it judged, and a
+# later step can demand that same tree. Graft itself is not adopted for
+# FBOS or AIPOS (it indexes code only, writes into ~/.claude and ~/.codex,
+# and phones home by default).
+
+memlint fingerprint [path]: prints one line, the 64-hex SHA-256 of the
+tree memlint would check: for every visible regular file, sorted by
+root-relative slash path, "path\0size\0sha256(content)\n". Content-based,
+so mtime, clone, and checkout do not move it; two identical trees on two
+machines share one fingerprint. Visible = what a commit could contain when
+git is present and root is inside a repository (`git ls-files --cached
+--others --exclude-standard`, minus paths that no longer exist); else every
+regular file under root except .git/. Symlinks are never followed. The
+config file is inside the set, so a rule change moves the fingerprint.
+Read-only; memlint still writes nothing but `init`.
+
+memlint check gains the fingerprint in every summary: text
+"memlint: clean (8 rules, 608 files checked, tree 0951f4c6ddbd)" and
+"memlint: 9 red, 4 yellow (tree 0951f4c6ddbd)" — first 12 hex; the tail -1
+receipt scripts already keep now carries the tree. JSON summary gains
+"tree": "<64-hex>" (additive; schema_version stays 1). github format
+unchanged. `--expect-tree <fp>` (full or >=12-hex prefix) adds one RED
+finding `tree/moved` on "." when the computed fingerprint does not start
+with it: the receipt is stale and the run is not the run you recorded.
+Exit codes unchanged: a moved tree is exit 1 like any RED.
+
+Gates (D-101), declared before code:
+G1 CHECK `memlint fingerprint testdata/fixture-clean` twice, then on a
+   copy of the fixture in a temp dir (fresh mtimes) EXPECT three identical
+   64-hex lines.
+G2 CHECK append one byte to one file in the temp copy EXPECT a different
+   fingerprint; restore the byte EXPECT the original fingerprint.
+G3 CHECK `check --expect-tree <fp of fixture-clean>` EXPECT exit 0, clean
+   line ending "tree <12hex>)"; `check --expect-tree 000000000000` EXPECT
+   exit 1 with exactly one RED `tree/moved`.
+G4 CHECK gofmt -l is empty, go vet clean, go test ./... passes, and
+   --format json summary.tree equals the fingerprint command's output.
+G5 CHECK `check --strict .` on promptkits EXPECT under 1.0 s wall
+   (baseline 0.56 s) and a fingerprint identical across two runs.

@@ -1,6 +1,10 @@
 package lint
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
 
 // Severity is the weight of a finding. RED means an invariant was evaluated
 // and violated, or could not be evaluated at all. YELLOW is advisory. INFO
@@ -53,6 +57,24 @@ type Result struct {
 	RulesRun int
 	// FilesChecked counts distinct paths any rule actually inspected.
 	FilesChecked int
+	// Tree is the fingerprint of the tree this result describes (see
+	// Fingerprint). Empty when the caller did not compute one.
+	Tree string
+}
+
+// ExpectTree records a RED tree/moved finding when the result's fingerprint
+// does not match want: the receipt names a different tree than the one just
+// judged. No-op when the trees match.
+func (r *Result) ExpectTree(want string) {
+	if TreeMatches(r.Tree, want) {
+		return
+	}
+	r.Findings = append(r.Findings, Finding{
+		Rule: "tree", Code: "tree/moved", Severity: SeverityRed, Path: ".",
+		Message: fmt.Sprintf("tree moved: fingerprint %s does not match expected %s", ShortTree(r.Tree), ShortTree(strings.ToLower(strings.TrimSpace(want)))),
+		Detail:  "the receipt was recorded against a different tree; re-run check on the tree you mean to act on",
+	})
+	sortFindings(r.Findings)
 }
 
 // Red counts RED findings.

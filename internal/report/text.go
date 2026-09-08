@@ -80,6 +80,9 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 	}
 	red, yellow := res.Red(), res.Yellow()
 	summary := fmt.Sprintf("memlint: %d red, %d yellow", red, yellow)
+	if t := treeSuffix(res, ""); t != "" {
+		summary += " (" + t + ")"
+	}
 	tone := ansiYellow
 	if red > 0 {
 		tone = ansiRed
@@ -92,10 +95,20 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 // must never read as a verified repository, so it says so.
 func cleanLine(res lint.Result) string {
 	if res.RulesRun == 0 {
-		return "memlint: clean (no rules enabled)"
+		return "memlint: clean (no rules enabled" + treeSuffix(res, ", ") + ")"
 	}
-	return fmt.Sprintf("memlint: clean (%s, %s checked)",
-		plural(res.RulesRun, "rule"), plural(res.FilesChecked, "file"))
+	return fmt.Sprintf("memlint: clean (%s, %s checked%s)",
+		plural(res.RulesRun, "rule"), plural(res.FilesChecked, "file"), treeSuffix(res, ", "))
+}
+
+// treeSuffix names the judged tree when the result carries a fingerprint, so
+// the summary line doubles as a receipt. Empty otherwise, which keeps output
+// byte-identical for callers that never computed one.
+func treeSuffix(res lint.Result, sep string) string {
+	if res.Tree == "" {
+		return ""
+	}
+	return sep + "tree " + lint.ShortTree(res.Tree)
 }
 
 // location renders the path[:line] column, naming the related path only when

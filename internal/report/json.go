@@ -33,6 +33,9 @@ type jsonSummary struct {
 	Red    int `json:"red"`
 	Yellow int `json:"yellow"`
 	Info   int `json:"info,omitempty"`
+	// Tree is the full fingerprint of the judged tree (v0.9); omitted when
+	// the run did not compute one.
+	Tree string `json:"tree,omitempty"`
 }
 
 // JSON writes the result as a stable, never-colored JSON document. Findings
@@ -48,6 +51,6 @@ func JSON(w io.Writer, res lint.Result) error {
 	return enc.Encode(jsonOutput{
 		SchemaVersion: SchemaVersion,
 		Findings:      findings,
-		Summary:       jsonSummary{Red: res.Red(), Yellow: res.Yellow(), Info: res.Info()},
+		Summary:       jsonSummary{Red: res.Red(), Yellow: res.Yellow(), Info: res.Info(), Tree: res.Tree},
 	})
 }

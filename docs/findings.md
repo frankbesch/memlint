@@ -368,3 +368,19 @@ the repo's own; a custom hit is named "custom pattern <regex>".
 ## secrets/no-match
 
 **YELLOW** · A `[secrets]` glob matches nothing, so nothing was scanned.
+
+## tree/moved
+
+**RED** · `check --expect-tree <fp>` was given a fingerprint, and the tree
+memlint just judged has a different one. The receipt you are holding was
+recorded against a different tree. Re-run `memlint check` on the tree you
+mean to act on and record the new fingerprint.
+
+The fingerprint is the SHA-256 of every visible regular file's path, size,
+and content hash, sorted by path (`memlint fingerprint`, and the `tree …`
+suffix of every `check` summary). It is content-based, so a clone, a
+checkout, or a touch does not move it; one changed byte, one added or
+removed file, or a config edit does. Visible means what a commit could
+contain when git is present (tracked plus untracked-not-ignored), else
+every file under the root except `.git/`. `<fp>` may be the full 64 hex or
+a prefix of at least 12.
