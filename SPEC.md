@@ -642,7 +642,7 @@ G5 CHECK `check --strict ~/Documents/promptkits` EXPECT clean, and the same
 G6 CI run id recorded in the commit that follows this one if it is not
    green on the first push; otherwise cited in the handoff.
 
-# --- v0.11 addendum: gap closure vs agents-lint / ctxlint / claude-healthcheck (approved 2026-09-11, D-### allocated at wrap) ---
+# --- v0.11 addendum: gap closure vs agents-lint / ctxlint / claude-healthcheck (approved 2026-09-11, D-144 §1-6) ---
 # Source: 2026-09-11 competitor read of giacomo/agents-lint, YawLabs/ctxlint,
 # mister-no-one/claude-healthcheck (READMEs only, code not read; a Codex
 # cross-check the same day corrected two claims, verified against the
@@ -790,7 +790,7 @@ Nothing to gate beyond the README output test staying green.
 Release: parts 1, 2, 4, 5 ship as v0.11.0 in about two sessions. Part 3
 adds a third session and can follow as v0.11.1 without a visible gap.
 
-# --- v0.11 parts 1-5: build receipt (built 2026-09-11, D-### allocated at wrap) ---
+# --- v0.11 parts 1-5: build receipt (built 2026-09-11, D-144; released v0.11.0, CI 34639081021, release run 34639549431) ---
 
 Gates run against the working tree that became this commit:
 G1-G5 (part 1) CHECK `go test ./internal/cli` EXPECT ok. The declared
@@ -832,5 +832,5 @@ G-all CHECK gofmt -l empty; go vet clean; go test ./... ok (cli, config,
 G-FBOS CHECK `check --strict ~/Documents/promptkits` EXPECT clean (8 rules,
    618 files, tree 94405c3993ed), exit 0, one INFO ids/known-duplicate
    line that predates this build; same with the flags after the path.
-G-CI CI run id recorded in the handoff at wrap if green on the first push;
-   otherwise in the commit that follows this one.
+G-CI CHECK CI run 34639081021 EXPECT success: test (ubuntu), test (macos),
+   action — all green on the first push. Release run 34639549431 green.
