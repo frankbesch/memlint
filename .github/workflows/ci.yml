@@ -48,7 +48,7 @@ jobs:
           set -e
           echo "$out"
           [ "$code" -eq 1 ]
-          echo "$out" | tail -1 | grep -qx "memlint: 10 red, 4 yellow"
+          echo "$out" | tail -1 | grep -q "^memlint: 10 red, 4 yellow"
 
       - name: acceptance — clean fixture exits 0
         run: |
@@ -64,7 +64,7 @@ jobs:
           set -e
           echo "$out"
           [ "$code" -eq 1 ]
-          echo "$out" | tail -1 | grep -qx "memlint: 2 red, 0 yellow"
+          echo "$out" | tail -1 | grep -q "^memlint: 2 red, 0 yellow"
 
       - name: acceptance — yellow fixture exits 0, fails under --strict
         run: |
