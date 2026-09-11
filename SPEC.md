@@ -641,3 +641,136 @@ G5 CHECK `check --strict ~/Documents/promptkits` EXPECT clean, and the same
    ac7db8cd94b5), exit 0.
 G6 CI run id recorded in the commit that follows this one if it is not
    green on the first push; otherwise cited in the handoff.
+
+# --- v0.11 addendum: gap closure vs agents-lint / ctxlint / claude-healthcheck (approved 2026-09-11, D-### allocated at wrap) ---
+# Source: 2026-09-11 competitor read of giacomo/agents-lint, YawLabs/ctxlint,
+# mister-no-one/claude-healthcheck (READMEs only, code not read). memlint is
+# alone on append_only, mirrors, blocks, human_brief, ids, stamps, and tree
+# receipts. It is behind on first-run friction: both linters run on a bare
+# `npx` with no config, agents-lint checks the Claude Code auto-memory
+# folder, and ctxlint ships a GitHub Action and a pre-commit hook. The
+# parts below close the cheap gaps only. Explicitly NOT pursued: --fix
+# (hard rule 1), an MCP server (scope, no dependency budget), checks of
+# context files against the codebase (npm scripts, framework staleness:
+# a different product), and a score (advisory, not a gate).
+
+# --- v0.11 part 1: check runs without a config, and says so (approved 2026-09-11) ---
+
+Today `memlint check` on a tree with no .memlint.toml is exit 2. After
+this part it runs the config `init --dry-run` would print (Enabled
+sections only; Suggested stays commented and therefore off) and reports
+one YELLOW finding first:
+  config  YELLOW  .memlint.toml  not found; ran the inferred config
+                                 (pointers, junk); memlint init to keep it
+                                 [config/inferred]
+Exit codes are unchanged in meaning: 0 with no RED, 1 with RED or with
+--strict (the YELLOW then fails the run, so a CI job that forgot its
+config is loud, not clean). Nothing is written. An invalid existing
+config stays exit 2; only absence triggers inference. When inference
+enables nothing, the run prints the YELLOW and then "clean (no rules
+enabled)". `config` becomes a reserved rule name in output; no config
+section of that name exists. Ruled: default-on with the YELLOW; no
+`--infer` flag. The YELLOW is what keeps inferred coverage from ever
+reading as a silent clean.
+
+Gates:
+G1 CHECK `check` on a temp tree with MEMORY.md + memory/a.md + a dead link
+   EXPECT exit 1, first line is config/inferred YELLOW, then
+   pointers/dead-ref RED; no .memlint.toml afterwards.
+G2 CHECK `check --strict` on a temp tree with MEMORY.md + memory/a.md and
+   no defects EXPECT exit 1 on the YELLOW alone; without --strict exit 0.
+G3 CHECK `check` on an empty temp dir EXPECT YELLOW then "clean (no rules
+   enabled)", exit 0.
+G4 CHECK `check` on a tree with a malformed .memlint.toml EXPECT exit 2,
+   unchanged.
+G5 CHECK `--format json` and `--format github` carry the config finding
+   like any other.
+G6 gofmt/vet/test green; fixtures unchanged (all three carry configs).
+G7 self-check on FBOS unchanged (it has a config). G8 CI green, run id.
+Estimate: ~60 lines in internal/cli (reuse inspect + renderConfig, parse
+the string through the same loader), one report constant, 4 tests.
+Half a session.
+
+# --- v0.11 part 2: wider index discovery (approved 2026-09-11) ---
+
+init and part 1 inference enable [pointers] on any of MEMORY.md,
+CLAUDE.md, AGENTS.md that exist. Add, on the same evidence-only basis:
+GEMINI.md, COPILOT.md, .github/copilot-instructions.md, .cursorrules,
+CONVENTIONS.md. These are the files agents-lint and ctxlint both read;
+each is a plain text file with repo paths in it, so a dead reference in
+one is the same defect. The [mirrors] suggestion list does NOT widen:
+D-143 §3 ruled it closed, and widening it is a separate ruling if ever.
+
+Gates:
+G1 CHECK init on a temp tree with .github/copilot-instructions.md +
+   docs/a.md EXPECT Enabled pointers naming that file, roots docs.
+G2 CHECK TestInitReportsTiers unchanged in its counts (the v0.10 tree has
+   none of the new files).
+G3 gofmt/vet/test green; fixtures unchanged. G4 CI green, run id.
+Estimate: a five-entry list change plus one test. Under an hour; ships
+with part 1.
+
+# --- v0.11 part 3: [pointers] on a flat memory folder (approved 2026-09-11) ---
+
+The Claude Code auto-memory folder (~/.claude/projects/<slug>/memory/) is
+MEMORY.md plus sibling notes, indexed as `- [Title](note.md) — hook`.
+A candidate today must contain `/` and its first segment must be in
+`roots`, so a sibling link is never checked and a renamed note is
+invisible. agents-lint checks exactly this. Change: `roots` accepts `"."`,
+meaning slash-less destinations from the markdown-link and image pass
+ONLY (never bare tokens, which would flag ordinary words like `a.md` in
+prose) resolve against the source file's own directory. Same finding
+code, pointers/dead-ref; same anchor handling. Bare-token and code-span
+passes are unchanged. init enables `roots = ["."]` when MEMORY.md sits
+beside two or more .md files and no md root exists; part 1 then makes
+`memlint check ~/.claude/projects/<slug>/memory` work with no config,
+which is the one-line recipe this part exists for.
+
+Gates:
+G1 CHECK a temp dir with MEMORY.md linking `gone.md` and `here.md`, only
+   here.md present, roots ["."] EXPECT 1 RED pointers/dead-ref at the
+   MEMORY.md line of gone.md.
+G2 CHECK the same tree with a prose line `see a.md for context` EXPECT no
+   finding for a.md (bare tokens stay slash-gated).
+G3 CHECK fixture-broken and fixture-clean unchanged (neither declares ".").
+G4 CHECK init on the G1 tree EXPECT Enabled pointers with roots ["."].
+G5 CHECK docs/rules.md pointers section documents "." and the link-only
+   scope; docs/recipes.md gains "Claude Code auto-memory" with the
+   one-line command.
+G6 gofmt/vet/test green. G7 self-check on FBOS unchanged. G8 CI green.
+Estimate: ~80 lines across lint/pointers.go, config validation, init;
+5 tests; two doc sections. One session. This is the only part that
+touches a rule's semantics, so it is the one to defer if anything is.
+
+# --- v0.11 part 4: GitHub Action and pre-commit hook (approved 2026-09-11) ---
+
+Add `action.yml` at the repo root: a composite action that downloads the
+release binary for the runner's OS/arch from the tagged release, verifies
+the checksum file goreleaser already publishes, and runs
+`memlint check --format github [path] [--strict]`. Inputs: path (default
+"."), strict (default false), version (default "latest"). Add
+`.pre-commit-hooks.yaml` with one hook, id `memlint`, `language: golang`,
+entry `memlint check --changed`, pass_filenames false. Neither file
+changes the binary. Marketplace listing is a manual step for Frank and
+is not a gate. Docs: README "In CI" gains the `uses:` snippet;
+docs/recipes.md gains the pre-commit stanza.
+
+Gates:
+G1 CHECK a workflow in this repo runs the action against examples/broken
+   with continue-on-error EXPECT the annotations for the 1 red 1 yellow
+   appear on the run, and the step exit is 1.
+G2 CHECK `pre-commit try-repo . memlint` on examples/broken EXPECT exit 1
+   with the same two findings.
+G3 gofmt/vet/test green; fixtures unchanged. G4 CI green, run id.
+Estimate: ~50 lines of YAML, two doc snippets, one CI job. Half a
+session, but G1 needs a tag to resolve `version: latest`, so it is
+verified against the v0.11.0 release, not before.
+
+# --- v0.11 part 5: run once without installing (approved 2026-09-11, docs only) ---
+
+README install section adds `go run github.com/frankbesch/memlint@latest
+check .` as the try-it line, matching the competitors' `npx` one-liner.
+Nothing to gate beyond the README output test staying green.
+
+Release: parts 1, 2, 4, 5 ship as v0.11.0 in about two sessions. Part 3
+adds a third session and can follow as v0.11.1 without a visible gap.
