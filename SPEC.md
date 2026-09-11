@@ -434,7 +434,7 @@ silently widen). Output formats and exit codes otherwise unchanged.
 2. [secrets] entropy detector: long high-entropy strings the shape-based
    detectors miss, with an allowlist for fixtures and examples. NOT
    approved (09-08): wait for an allowlist tuned on the real corpus, else
-   it floods every wrap with yellows. RETIRED 2026-09-11 (D-### at wrap):
+   it floods every wrap with yellows. RETIRED 2026-09-11 (D-145):
    an allowlist is an unverifiable excuse, the posture rule 1 forbids;
    the gap is covered by `[secrets] patterns` per corpus. Not a behavior
    change; no gates beyond G-all.
