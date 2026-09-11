@@ -30,6 +30,11 @@ whole pipeline locally without publishing anything.
 
 ## Roadmap and history
 
+Shipped in v0.10: flags honored before or after the path; per-command
+help; `init` reports Enabled / Suggested / Not inferred and writes only
+the sections its evidence supports; `init --dry-run`. Rule expansion is
+frozen until v0.10.0 ships (D-143).
+
 v0.9 futures, in priority order:
 
 1. **`[secrets]` entropy detector** — catch high-entropy strings the

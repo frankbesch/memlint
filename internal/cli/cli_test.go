@@ -82,7 +82,8 @@ func TestExitCodes(t *testing.T) {
 		{"unknown command", []string{"lint"}, 2},
 		{"unknown flag", []string{"check", "--fix"}, 2},
 		{"unknown format", []string{"check", "--format", "html", fixture("fixture-clean")}, 2},
-		{"flag after path", []string{"check", fixture("fixture-yellow"), "--strict"}, 2},
+		{"flag after path is honored", []string{"check", fixture("fixture-yellow"), "--strict"}, 1},
+		{"two paths", []string{"check", fixture("fixture-yellow"), fixture("fixture-clean")}, 2},
 		{"target does not exist", []string{"check", "no/such/dir"}, 2},
 		{"help", []string{"-h"}, 0},
 		{"check help", []string{"check", "-h"}, 0},
@@ -141,10 +142,12 @@ func TestVersionInjection(t *testing.T) {
 
 // A flag written after the path would otherwise be swallowed silently by the
 // standard flag package, so --strict would appear to work while doing nothing.
-func TestFlagAfterPathIsRefusedNotIgnored(t *testing.T) {
-	got := run(t, nil, "check", fixture("fixture-yellow"), "--strict")
-	if !strings.Contains(got.stderr, "flags must precede the path") {
-		t.Errorf("stderr should explain the argument order:\n%s", got.stderr)
+func TestFlagAfterPathIsHonored(t *testing.T) {
+	after := run(t, nil, "check", "--no-color", fixture("fixture-yellow"), "--strict")
+	before := run(t, nil, "check", "--no-color", "--strict", fixture("fixture-yellow"))
+	if after.code != 1 || after.code != before.code || after.stdout != before.stdout {
+		t.Errorf("--strict after the path must behave exactly like before it:\nafter (exit %d):\n%s\nbefore (exit %d):\n%s",
+			after.code, after.stdout, before.code, before.stdout)
 	}
 }
 
@@ -319,7 +322,7 @@ func TestColorIsSuppressed(t *testing.T) {
 
 func TestHelpGoesToStdout(t *testing.T) {
 	got := run(t, nil, "-h")
-	if !strings.Contains(got.stdout, "memlint check") {
+	if !strings.Contains(got.stdout, "memlint <command>") {
 		t.Errorf("help belongs on stdout, got stdout=%q stderr=%q", got.stdout, got.stderr)
 	}
 }
@@ -435,8 +438,10 @@ func TestInitGeneratesWorkingConfig(t *testing.T) {
 	if got.code != 0 {
 		t.Fatalf("init exited %d\nstderr:\n%s", got.code, got.stderr)
 	}
-	if !strings.Contains(got.stdout, "2 rules enabled") {
-		t.Errorf("expected 2 evidence-based rules, got: %q", got.stdout)
+	for _, want := range []string{"Enabled", "  pointers ", "  junk "} {
+		if !strings.Contains(got.stdout, want) {
+			t.Errorf("init report should list %q under Enabled, got:\n%s", want, got.stdout)
+		}
 	}
 
 	// The generated config must load and run, and catch the planted defects:

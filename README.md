@@ -80,9 +80,10 @@ memlint init
 memlint check
 ```
 
-`init` inspects the repo and writes a commented `.memlint.toml` that enables
-only the rules it found evidence for. Review it, then add rules from the table
-below as your repo accumulates invariants worth declaring. Ready-made configs
+`init` inspects the repo, writes a `.memlint.toml` that enables only the
+rules it found evidence for, and reports what it enabled, what it only
+suggests, and what it refused to guess. `memlint init --dry-run` shows the
+config without writing it. Review it, then add rules from the table below as your repo accumulates invariants worth declaring. Ready-made configs
 for common layouts are in [docs/recipes.md](docs/recipes.md).
 
 ## What can it protect?

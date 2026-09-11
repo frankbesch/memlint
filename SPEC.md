@@ -620,3 +620,24 @@ G4 gofmt/vet/test green; fixtures unchanged. G5 CI green, run id cited.
 Release: parts 1-4 ship together as v0.10.0. Docs touched: docs/cli.md
 (delete the flag-order paragraph, add --dry-run), README quick start
 (one line on the init report), docs/development.md roadmap.
+
+# --- v0.10 parts 1-4: build receipt (built 2026-09-11, D-143) ---
+
+Gates run against the working tree that became this commit:
+G1-G3 (all parts) CHECK `go test ./...` EXPECT ok for internal/cli,
+   config, lint, report; grep FAIL empty. The declared gates are tests:
+   TestFlagsAnywhereAroundThePath, TestBadArgumentsAreLoud,
+   TestTopLevelHelpIsOneScreen (13 lines), TestCheckHelpCoversDocumentedFlags,
+   TestPerCommandHelp, TestInitReportsTiers (18-line config, commented
+   sections exactly append_only,mirrors), TestInitEmptyRepoListsEverythingAsNotInferred,
+   TestInitDryRun, TestFlagAfterPathIsHonored (renamed from
+   TestFlagAfterPathIsRefusedNotIgnored; the exit-code table row flips 2 -> 1
+   and gains a "two paths" row at 2).
+G4/G5 CHECK gofmt -l empty; go vet clean; fixture-broken 10 red 4 yellow;
+   fixture-clean clean (6 rules, 9 files); fixture-dupids 2 red 0 yellow;
+   examples minimal/shared-instructions clean, broken 1 red 1 yellow.
+G5 CHECK `check --strict ~/Documents/promptkits` EXPECT clean, and the same
+   with the flags after the path: clean (8 rules, 618 files, tree
+   ac7db8cd94b5), exit 0.
+G6 CI run id recorded in the commit that follows this one if it is not
+   green on the first push; otherwise cited in the handoff.

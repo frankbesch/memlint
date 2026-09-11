@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -8,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/frankbesch/memlint/internal/config"
 )
 
 // runInit inspects a repository and writes a commented starter .memlint.toml.
@@ -21,19 +24,11 @@ import (
 // is emitted as a commented example, because enabling an invariant nobody
 // depends on is noise, and noise is how a checker gets ignored.
 func runInit(args []string, stdout, stderr io.Writer) int {
-	switch {
-	case len(args) > 0 && (args[0] == "-h" || args[0] == "--help"):
-		fmt.Fprint(stdout, usageText)
-		return ExitClean
-	case len(args) > 1:
-		fmt.Fprintf(stderr, "memlint: unexpected argument %q\n", args[1])
-		fmt.Fprint(stderr, usageText)
-		return ExitUsage
-	}
-
-	root := "."
-	if len(args) == 1 {
-		root = args[0]
+	fs := flag.NewFlagSet("init", flag.ContinueOnError)
+	dryRun := fs.Bool("dry-run", false, "print the config instead of writing it")
+	root, code, done := parseCommand(fs, args, initUsage, stdout, stderr)
+	if done {
+		return code
 	}
 	info, err := os.Stat(root)
 	if err != nil {
@@ -46,14 +41,22 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	}
 
 	ev := inspect(root)
-	content, enabled := renderConfig(ev)
+	content, rep := renderConfig(ev)
+	cfgPath := filepath.Join(root, config.FileName)
 
-	cfgPath := filepath.Join(root, ".memlint.toml")
+	if *dryRun {
+		// The config goes to stdout so a script can capture it whole; the
+		// report goes to stderr so it never lands in the captured file.
+		fmt.Fprint(stdout, content)
+		rep.write(stderr, "Would write "+cfgPath+" (dry run: nothing written)")
+		return ExitClean
+	}
+
 	// O_EXCL makes "refuse to overwrite" atomic rather than check-then-write.
 	f, err := os.OpenFile(cfgPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		if os.IsExist(err) {
-			fmt.Fprintf(stderr, "memlint: %s already exists; init refuses to overwrite it\n", cfgPath)
+			fmt.Fprintf(stderr, "memlint: %s already exists; init refuses to overwrite it (use --dry-run to see what it would write)\n", cfgPath)
 		} else {
 			fmt.Fprintf(stderr, "memlint: cannot write %s: %v\n", cfgPath, err)
 		}
@@ -68,15 +71,45 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "memlint: writing %s: %v\n", cfgPath, err)
 		return ExitUsage
 	}
-
-	switch enabled {
-	case 0:
-		fmt.Fprintf(stdout, "memlint: wrote %s (no rules enabled — uncomment the examples inside as invariants emerge)\n", cfgPath)
-	default:
-		fmt.Fprintf(stdout, "memlint: wrote %s (%s enabled) — review it, then run: memlint check\n",
-			cfgPath, pluralRules(enabled))
-	}
+	rep.write(stdout, "Created "+cfgPath)
 	return ExitClean
+}
+
+// tierLine is one row of the init report: a rule and the evidence (or the
+// reason there is none) behind its placement.
+type tierLine struct{ rule, why string }
+
+// initReport says what init inferred, what it only suspected, and what it
+// refused to guess. Cautious automation earns trust by explaining itself.
+type initReport struct {
+	enabled     []tierLine
+	suggested   []tierLine
+	notInferred []tierLine
+}
+
+func (r initReport) write(w io.Writer, headline string) {
+	fmt.Fprintln(w, headline)
+	fmt.Fprintln(w)
+	if len(r.enabled) == 0 {
+		fmt.Fprintln(w, "Nothing enabled: no evidence found. check will say clean (no rules enabled).")
+	} else {
+		fmt.Fprintln(w, "Enabled")
+		writeTier(w, r.enabled)
+	}
+	if len(r.suggested) > 0 {
+		fmt.Fprintln(w, "Suggested (written as commented sections; uncomment to enable)")
+		writeTier(w, r.suggested)
+	}
+	fmt.Fprintln(w, "Not inferred (needs a decision only you can make)")
+	writeTier(w, r.notInferred)
+	fmt.Fprintln(w, "Next")
+	fmt.Fprintln(w, "  review the config, then: memlint check")
+}
+
+func writeTier(w io.Writer, lines []tierLine) {
+	for _, l := range lines {
+		fmt.Fprintf(w, "  %-13s %s\n", l.rule, l.why)
+	}
 }
 
 // evidence is what one read-only pass over the repository turned up.
@@ -85,11 +118,20 @@ type evidence struct {
 	mdRoots    []string // top-level dirs that contain markdown, candidate [pointers] roots
 	dsStore    bool     // a .DS_Store exists somewhere in the tree
 	tmpFiles   bool     // a *.tmp exists somewhere in the tree
+
+	// Suggestion evidence. The list is closed by ruling (D-143 §3): a
+	// decisions log by name, and two or more instruction files at the root.
+	decisionsLog     string   // first decisions.md / decision-log.md under an md root
+	instructionFiles []string // of CLAUDE.md, AGENTS.md, GEMINI.md, the ones that exist
 }
 
 // indexCandidates are the files agent runtimes conventionally read as memory
 // indexes. Only ones that actually exist are configured.
 var indexCandidates = []string{"MEMORY.md", "CLAUDE.md", "AGENTS.md"}
+
+// instructionCandidates are the per-runtime instruction files. Two or more
+// present at the root is the evidence for suggesting [mirrors].
+var instructionCandidates = []string{"CLAUDE.md", "AGENTS.md", "GEMINI.md"}
 
 func inspect(root string) evidence {
 	var ev evidence
@@ -97,6 +139,12 @@ func inspect(root string) evidence {
 	for _, name := range indexCandidates {
 		if info, err := os.Stat(filepath.Join(root, name)); err == nil && info.Mode().IsRegular() {
 			ev.indexFiles = append(ev.indexFiles, name)
+		}
+	}
+
+	for _, name := range instructionCandidates {
+		if info, err := os.Stat(filepath.Join(root, name)); err == nil && info.Mode().IsRegular() {
+			ev.instructionFiles = append(ev.instructionFiles, name)
 		}
 	}
 
@@ -127,6 +175,10 @@ func inspect(root string) evidence {
 			rel = filepath.ToSlash(rel)
 			if i := strings.Index(rel, "/"); i > 0 {
 				roots[rel[:i]] = true
+				base := strings.ToLower(d.Name())
+				if ev.decisionsLog == "" && (base == "decisions.md" || base == "decision-log.md") {
+					ev.decisionsLog = rel
+				}
 			}
 		}
 		return nil
@@ -139,92 +191,84 @@ func inspect(root string) evidence {
 	return ev
 }
 
-// renderConfig produces the generated file and the number of enabled rules.
+// renderConfig produces the generated file and the report that explains it.
 // The output must always pass config.Load — that property is pinned by test.
-func renderConfig(ev evidence) (string, int) {
+// The file carries only what the evidence supports: enabled sections, and
+// commented sections for the suggested rules. The rule reference lives in
+// the docs, not in every generated config.
+func renderConfig(ev evidence) (string, initReport) {
 	var b strings.Builder
-	enabled := 0
+	var rep initReport
 
 	b.WriteString(`# .memlint.toml — generated by memlint init from an inspection of this
-# repository. Review before trusting: only rules with observed evidence are
-# enabled; the rest are commented examples. A section's presence is what
-# enables its rule. Docs: https://github.com/frankbesch/memlint#rules
+# repository. Only rules with observed evidence are enabled. A section's
+# presence is what enables its rule. Rules and recipes:
+# https://github.com/frankbesch/memlint/blob/main/docs/recipes.md
 
 `)
 
 	if len(ev.indexFiles) > 0 && len(ev.mdRoots) > 0 {
-		enabled++
+		rep.enabled = append(rep.enabled, tierLine{"pointers",
+			strings.Join(ev.indexFiles, ", ") + " -> roots " + strings.Join(ev.mdRoots, ", ")})
 		b.WriteString("# Repo-path references in these files must resolve to files that exist.\n")
 		b.WriteString("[pointers]\n")
 		b.WriteString("files = " + tomlList(ev.indexFiles) + "\n")
 		b.WriteString("# A reference is checked only when its first path segment is a root here.\n")
 		b.WriteString("roots = " + tomlList(ev.mdRoots) + "\n\n")
+	} else {
+		rep.notInferred = append(rep.notInferred, tierLine{"pointers", "no index file (MEMORY.md, CLAUDE.md, AGENTS.md) next to a folder of markdown"})
 	}
 
 	if ev.dsStore || ev.tmpFiles {
-		enabled++
-		var globs []string
+		var globs, seen []string
 		if ev.dsStore {
 			globs = append(globs, ".DS_Store")
+			seen = append(seen, ".DS_Store")
 		}
 		if ev.tmpFiles {
 			globs = append(globs, "*.tmp")
+			seen = append(seen, "*.tmp")
 		}
+		rep.enabled = append(rep.enabled, tierLine{"junk", strings.Join(seen, " and ") + " seen in the tree"})
 		b.WriteString("# Files matching these globs were found in the tree and should not be here.\n")
 		b.WriteString("[junk]\n")
 		b.WriteString("globs = " + tomlList(globs) + "\n\n")
+	} else {
+		rep.notInferred = append(rep.notInferred, tierLine{"junk", "no .DS_Store or *.tmp seen"})
 	}
 
-	b.WriteString(`# --- no evidence found for the rules below; uncomment and adapt to enable ---
+	if ev.decisionsLog != "" {
+		rep.suggested = append(rep.suggested, tierLine{"append_only", ev.decisionsLog + " exists"})
+		b.WriteString("# Suggested: a decisions log by name. Uncomment if it may only grow.\n")
+		b.WriteString("# [append_only]\n")
+		b.WriteString("# files = " + tomlList([]string{ev.decisionsLog}) + "\n\n")
+	}
 
-# Files or directories that must stay byte-identical:
-# [mirrors]
-# pairs = [["CLAUDE.md", "docs/CLAUDE.md"]]
+	if len(ev.instructionFiles) >= 2 {
+		rep.suggested = append(rep.suggested, tierLine{"mirrors", strings.Join(ev.instructionFiles, " and ") + " both present"})
+		b.WriteString("# Suggested: two instruction files at the root. Uncomment if they must stay identical.\n")
+		b.WriteString("# [mirrors]\n")
+		b.WriteString("# pairs = [" + tomlList(ev.instructionFiles[:2]) + "]\n\n")
+	}
 
-# Logs that may only grow, compared against git HEAD:
-# [append_only]
-# files = ["memory/decisions.md"]
-# header_lines = 10                          # optional: the only mutable span
-# headers = { "memory/archive/vol1.md" = 8 } # optional per-file override
+	// Policy-dependent rules are never guessed. Each line says what the
+	// decision is, so the reader knows it is theirs.
+	if ev.decisionsLog == "" {
+		rep.notInferred = append(rep.notInferred, tierLine{"append_only", "no decisions.md found; which log may only grow is your call"})
+	}
+	if len(ev.instructionFiles) < 2 {
+		rep.notInferred = append(rep.notInferred, tierLine{"mirrors", "fewer than two of CLAUDE.md, AGENTS.md, GEMINI.md at the root"})
+	}
+	rep.notInferred = append(rep.notInferred,
+		tierLine{"blocks", "the ownership markers are a convention you pick"},
+		tierLine{"human_brief", "authorship is a policy choice"},
+		tierLine{"tokens", "a budget is a choice"},
+		tierLine{"ids", "the id shape is a convention you pick"},
+		tierLine{"stamps", "a maximum age is a choice"},
+		tierLine{"secrets", "enable deliberately; it scans every file you list"},
+	)
 
-# Agent-owned regions whose markers must stay well-formed:
-# [blocks]
-# files = ["CLAUDE.md"]
-# start = "<!-- AGENT:START -->"
-# end = "<!-- AGENT:END -->"
-# mirror = true   # optional: block content must match across the files
-
-# Files no agent may ever have written, checked against full git history:
-# [human_brief]
-# files = ["INSTRUCTIONS.md"]
-# agent_authors = ["noreply@anthropic.com"]
-# follow_renames = true   # optional: keep history across a rename
-
-# Notes that must stay under a token budget:
-# [tokens]
-# watch = ["memory/*.md"]
-# budget = 2000
-# limit = 4000   # optional hard tier: past this is RED, not YELLOW
-
-# Ids that open a line (D-001, D-002, ...) must be unique across these files:
-# [ids]
-# files = ["memory/decisions.md", "memory/archive/*.md"]
-# pattern = "^(D-\\d{3}) \\|"   # default: an entry line; the capture group is the id
-# known = ["D-102"]               # reconciled collisions: INFO, not RED
-# cited_in = ["CLAUDE.md"]        # every cited id must be an entry
-# ordered = true                  # entries must not go backwards
-
-# Last-verified stamps that must keep up with the file's last change:
-# [stamps]
-# files = ["portfolio/*.md"]
-# max_age_days = 30
-
-# Credential-shaped text that must never reach history:
-# [secrets]
-# globs = ["**/*.md"]
-`)
-
-	return b.String(), enabled
+	return strings.TrimRight(b.String(), "\n") + "\n", rep
 }
 
 // tomlList renders a TOML array of strings. %q quoting is a valid TOML basic
@@ -235,11 +279,4 @@ func tomlList(items []string) string {
 		quoted[i] = fmt.Sprintf("%q", s)
 	}
 	return "[" + strings.Join(quoted, ", ") + "]"
-}
-
-func pluralRules(n int) string {
-	if n == 1 {
-		return "1 rule"
-	}
-	return fmt.Sprintf("%d rules", n)
 }

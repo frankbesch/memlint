@@ -2,8 +2,9 @@
 
 ```bash
 memlint check [flags] [path]
+memlint init [--dry-run] [path]
 memlint fingerprint [path]
-memlint init [path]
+memlint <command> --help
 memlint --version
 ```
 
@@ -59,12 +60,32 @@ memlint: clean (3 rules, 4 files checked, tree 244bcef8bd98)
 | `--no-color` | disable ANSI color (also honored: `NO_COLOR`) |
 | `-h`, `--help` | usage |
 
-Flags must come **before** the path. `memlint check . --strict` is refused with
-an error rather than silently ignoring `--strict`, which is what the standard
-argument parser would otherwise do.
+Flags may come before or after the path. An unknown flag anywhere, a flag
+without its value, or a second path is a usage error (exit 2) with that
+command's help on stderr, never a silent ignore.
 
 Color turns itself off when stdout is not a terminal, so piped and redirected
 output is always clean.
+
+`memlint --help` is one screen: the three commands and where to go next.
+Each command owns its own help: `memlint check --help` lists the flags
+above, `memlint init --help` says what it inspects, `memlint fingerprint
+--help` explains the receipt. `memlint help <command>` is the same thing.
+
+## init
+
+`memlint init [path]` inspects the repo and writes `.memlint.toml`. It
+prints a report in three tiers: **Enabled** (rules with observed evidence,
+written as live sections), **Suggested** (a `decisions.md` by name suggests
+`append_only`; two of `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` at the root
+suggest `mirrors`; written as commented sections), and **Not inferred**
+(everything that needs a choice only you can make, with the choice named).
+The suggestion list is closed: nothing else is ever guessed.
+
+`memlint init --dry-run [path]` runs the same inspection, prints the config
+it would write to stdout and the report to stderr, and writes nothing. It
+works when a config already exists, so discovery can be rerun on a
+configured repo. init never overwrites, and there is no `--force`.
 
 `memlint --version` (top-level, before any command) prints the version and
 exits 0.
