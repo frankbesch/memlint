@@ -1,0 +1,37 @@
+name: Invariant proposal
+description: Propose a new rule. memlint only adds a rule for a silent, consequential failure that nothing else catches.
+labels: [invariant]
+body:
+  - type: textarea
+    id: invariant
+    attributes:
+      label: What must remain true?
+      description: State the property as a sentence memlint could check mechanically.
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: What silent failure happens when it does not?
+      description: What the agent does wrong, and why nothing fails loudly today.
+    validations:
+      required: true
+  - type: textarea
+    id: existing
+    attributes:
+      label: Why can no existing rule detect it?
+      description: Which of the ten rules comes closest, and where it stops short.
+    validations:
+      required: true
+  - type: textarea
+    id: layer
+    attributes:
+      label: Why is memlint the right layer?
+      description: Why a general-purpose tool (markdown linter, pre-commit, secret scanner, tests) would not own this better.
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Sketch of the config section
+      render: toml
