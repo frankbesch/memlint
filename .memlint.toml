@@ -1,16 +1,32 @@
 # memlint checking itself.
 #
 # Only rules that genuinely apply to this repository are enabled. There are no
-# placeholder sections here just to light up all five rules: an invariant nobody
+# placeholder sections here just to light up every rule: an invariant nobody
 # actually depends on is noise, and noise is how a checker gets ignored.
 #
 # Note that *.tmp is deliberately absent from [junk]. testdata/fixture-broken
 # contains a planted scratch.tmp, and flagging a fixture's intentional defect
 # would make this repo's own output permanently yellow for no reason.
 
+# Every path and anchor the public docs point at must exist. References are
+# resolved from the repo root, so links written from inside docs/ with a
+# leading ../ are rendered by GitHub but not checked here. docs/cli.md and
+# docs/configuration.md are left out because they quote fixture output and
+# sample configs that name paths which exist only inside testdata/.
 [pointers]
-files = ["README.md"]
-roots = ["internal", "testdata"]
+files = [
+  "README.md", "CONTRIBUTING.md", "CLAUDE.md",
+  "docs/rules.md", "docs/recipes.md", "docs/findings.md",
+  "docs/development.md", "docs/tree-receipts.md",
+]
+roots = ["docs", "examples", "internal", "testdata", ".github"]
 
 [junk]
 globs = [".DS_Store"]
+
+# The README is the landing page. A budget on it is memlint guarding its own
+# usability: the 2026-09-11 rewrite landed at roughly 2,000 tokens after the
+# reference material moved to docs/.
+[tokens]
+watch = ["README.md"]
+budget = 2500

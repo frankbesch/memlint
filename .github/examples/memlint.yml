@@ -1,0 +1,35 @@
+# Copy this file to .github/workflows/memlint.yml in the repo your agent uses
+# as memory. It runs memlint on every pull request and renders findings as
+# inline annotations on the diff.
+#
+# fetch-depth: 0 and --base together let [append_only] compare the log
+# against the pull request's base commit. A shallow checkout equals its own
+# HEAD, so without them an append-only log would have nothing to be checked
+# against.
+name: memlint
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  memlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install memlint
+        run: |
+          go install github.com/frankbesch/memlint@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Check agent memory
+        run: memlint check --format github --strict --base "${{ github.event.pull_request.base.sha }}" .

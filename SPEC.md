@@ -1,3 +1,9 @@
+<!-- This is memlint's build log: the original build prompt followed by one
+versioned addendum per shipped change, each with the gates that proved it.
+It exists for design provenance. The user manual is README.md; reference
+docs are under docs/. D-### references are the maintainer's decision log and
+are not part of this repository. -->
+
 # memlint — Claude Code build prompt (v0.1)
 # Usage: run from a fresh empty repo folder. Start in plan mode.
 

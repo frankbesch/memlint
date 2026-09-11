@@ -1,5 +1,8 @@
 # memlint — agent contract
 
+This file is the maintainer's contract with AI coding agents working in this
+repo. Users want README.md; contributors want CONTRIBUTING.md.
+
 memlint is Frank Besch's invariant checker for file-based agent memory
 (Go, MIT, `github.com/frankbesch/memlint`). Think `fsck`, not ESLint. It
 reads a repo of markdown that AI runtimes treat as memory and reports the
@@ -18,7 +21,7 @@ docs/findings.md is the finding-code reference.
    (`~/Documents/promptkits/memory/decisions.md`, D-###); cite the D-### in
    the addendum header and the commit message. Never write FBOS state here.
 3. Fixture counts are the acceptance test. Changing a planted defect changes
-   README "Development" and the addendum in the same commit.
+   docs/development.md and the addendum in the same commit.
 4. Finding codes (`rule/code`) are stable once released; messages may be
    reworded, codes may not.
 5. Dependencies: BurntSushi/toml and golang.org/x/term only. stdlib `flag`,

@@ -75,5 +75,20 @@ jobs:
           set -e
           [ "$code" -eq 1 ]
 
+      # The recipes in docs/recipes.md are the directories under examples/.
+      # Each is held to the result its recipe states (details in
+      # internal/cli/examples_test.go; this step is the visible receipt).
+      - name: examples — recipes produce the results they claim
+        run: |
+          for e in minimal shared-instructions; do
+            ./memlint check --no-color "examples/$e" | tail -1 | grep -q "^memlint: clean" || exit 1
+          done
+          set +e
+          out=$(./memlint check --no-color examples/broken); code=$?
+          set -e
+          echo "$out"
+          [ "$code" -eq 1 ]
+          echo "$out" | tail -1 | grep -q "^memlint: 1 red, 1 yellow"
+
       - name: self-check — memlint runs clean on its own repository
         run: ./memlint check --no-color --strict .

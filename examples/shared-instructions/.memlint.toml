@@ -1,0 +1,12 @@
+# Recipe: one set of agent instructions read by two runtimes.
+# The copies must stay byte-identical, and the agent-owned block must stay well-formed.
+
+[mirrors]
+pairs = [
+  ["CLAUDE.md", "AGENTS.md"],
+]
+
+[blocks]
+files = ["CLAUDE.md", "AGENTS.md"]
+start = "<!-- AGENT:START -->"
+end = "<!-- AGENT:END -->"

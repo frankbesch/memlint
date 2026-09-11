@@ -1,0 +1,13 @@
+# Recipe: a basic agent-memory repo.
+# An index file points at notes; the notes must exist and stay small.
+
+[pointers]
+files = ["MEMORY.md"]
+roots = ["memory"]
+
+[tokens]
+watch = ["MEMORY.md", "memory/*.md"]
+budget = 400
+
+[junk]
+globs = [".DS_Store", "*.tmp"]

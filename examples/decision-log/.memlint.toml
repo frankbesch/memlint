@@ -1,0 +1,9 @@
+# Recipe: a durable decision log.
+# Entries may be appended, never rewritten, and every id is unique and in order.
+
+[append_only]
+files = ["memory/decisions.md"]
+
+[ids]
+files = ["memory/decisions.md"]
+ordered = true
