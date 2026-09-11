@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 
@@ -247,6 +248,79 @@ func normalizeCandidate(c candidate) (ref Ref, ok bool) {
 	return Ref{Raw: raw, Target: target, Anchor: anchor}, true
 }
 
+// SiblingRoot is the [pointers] roots entry that turns on sibling checking:
+// a markdown link or image destination with no slash resolves against the
+// source file's own directory (v0.11). It exists for flat memory folders —
+// Claude Code's auto-memory is MEMORY.md beside its notes, indexed as
+// `[Title](note.md)` — where no first-segment root could ever match.
+const SiblingRoot = "."
+
+// hasSiblingRoot reports whether roots turns on the sibling pass.
+func hasSiblingRoot(roots []string) bool {
+	for _, r := range roots {
+		if r == SiblingRoot {
+			return true
+		}
+	}
+	return false
+}
+
+// siblingRefs extracts link and image destinations that carry no slash and
+// rewrites each target relative to dir, the source file's directory. Only
+// the link pass feeds it: a bare token like "notes.md" in prose is a word,
+// not a claim, and flagging it would make the rule unusable on real notes.
+// Dedup is by target when anchored is false and by target+anchor otherwise,
+// mirroring ExtractRefs and ExtractAnchoredRefs.
+func siblingRefs(src, dir string, anchored bool) []Ref {
+	var refs []Ref
+	seen := map[string]bool{}
+	for i, line := range strings.Split(src, "\n") {
+		for _, m := range linkRe.FindAllStringSubmatchIndex(line, -1) {
+			ref, ok := normalizeSibling(line[m[2]:m[3]])
+			if !ok || (anchored && ref.Anchor == "") {
+				continue
+			}
+			ref.Target = config.CleanRel(path.Join(dir, ref.Target))
+			key := ref.Target
+			if anchored {
+				key += "#" + ref.Anchor
+			}
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			ref.Line = i + 1
+			refs = append(refs, ref)
+		}
+	}
+	return refs
+}
+
+// normalizeSibling applies the skip rules to a link destination and accepts
+// it only when the base has no slash: a destination with one is the
+// ordinary pass's business, gated by the named roots.
+func normalizeSibling(dest string) (Ref, bool) {
+	raw := strings.TrimSpace(dest)
+	base, anchor := raw, ""
+	if i := strings.Index(raw, "#"); i >= 0 {
+		if strings.Count(raw, "#") > 1 {
+			return Ref{}, false
+		}
+		base, anchor = raw[:i], raw[i+1:]
+	}
+	base = strings.TrimPrefix(base, "./")
+	if base == "" || strings.Contains(base, "/") || strings.Contains(base, ":") {
+		return Ref{}, false
+	}
+	if strings.ContainsAny(base, rejectChars) || strings.Contains(base, "YYYY") {
+		return Ref{}, false
+	}
+	if base == "." || base == ".." {
+		return Ref{}, false
+	}
+	return Ref{Raw: raw, Target: base, Anchor: anchor}, true
+}
+
 // checkPointers verifies that every checkable reference in the configured
 // files resolves to something that exists.
 //
@@ -277,7 +351,14 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 		r.mark(rel)
 
 		exists := map[string]bool{}
-		for _, ref := range CheckableRefs(string(data), cfg.Roots) {
+		refs := CheckableRefs(string(data), cfg.Roots)
+		anchored := checkableAnchoredRefs(string(data), cfg.Roots)
+		if hasSiblingRoot(cfg.Roots) {
+			dir := path.Dir(rel)
+			refs = append(refs, siblingRefs(string(data), dir, false)...)
+			anchored = append(anchored, siblingRefs(string(data), dir, true)...)
+		}
+		for _, ref := range refs {
 			targetAbs, ok := r.resolve(ref.Target)
 			if !ok {
 				continue
@@ -300,7 +381,7 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 				}
 			}
 		}
-		checkAnchors(r, rel, string(data), cfg.Roots, exists)
+		checkAnchors(r, rel, anchored, exists)
 	}
 }
 
@@ -308,9 +389,9 @@ func checkPointers(r *runner, cfg *config.Pointers) {
 // reference whose base exists and is markdown must name an anchor that
 // markdown exposes. A dead base is already pointers/dead-ref and is not
 // reported twice. Target files are read once each.
-func checkAnchors(r *runner, rel, src string, roots []string, exists map[string]bool) {
+func checkAnchors(r *runner, rel string, anchored []Ref, exists map[string]bool) {
 	cache := map[string]map[string]bool{}
-	for _, ref := range checkableAnchoredRefs(src, roots) {
+	for _, ref := range anchored {
 		if !exists[ref.Target] || !isMarkdownTarget(ref.Target) {
 			continue
 		}

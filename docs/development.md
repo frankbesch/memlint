@@ -30,6 +30,11 @@ whole pipeline locally without publishing anything.
 
 ## Roadmap and history
 
+Shipped in v0.11: `check` without a config runs the inferred config and
+says so (`config/inferred`); wider index discovery for `init`; the
+`[pointers]` sibling root `"."` for flat memory folders; `action.yml` and
+`.pre-commit-hooks.yaml`; the `go run @latest` try-it line.
+
 Shipped in v0.10: flags honored before or after the path; per-command
 help; `init` reports Enabled / Suggested / Not inferred and writes only
 the sections its evidence supports; `init --dry-run`. Rule expansion is

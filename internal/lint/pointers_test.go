@@ -286,3 +286,66 @@ func TestPointersRule(t *testing.T) {
 		wantCounts(t, res, 1, 0)
 	})
 }
+
+// v0.11 part 3: the sibling root "." checks slash-less link destinations
+// against the source file's own directory, and nothing else.
+func TestPointersSiblingRoot(t *testing.T) {
+	t.Run("dead sibling link is red, prose word is not", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"MEMORY.md": "- [here](here.md)\n- [gone](gone.md)\n- `also.md` and also.md in prose\n",
+			"here.md":   "# Here\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"MEMORY.md"}, Roots: []string{"."},
+		}})
+		wantCounts(t, res, 1, 0)
+		wantMessage(t, res, "dead reference: gone.md does not exist")
+		if got := res.Findings[0].Line; got != 2 {
+			t.Errorf("got line %d, want 2", got)
+		}
+	})
+
+	t.Run("resolves against the source file's directory, not the root", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"notes/MEMORY.md": "- [x](x.md)\n",
+			"x.md":            "wrong place\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"notes/MEMORY.md"}, Roots: []string{"."},
+		}})
+		wantCounts(t, res, 1, 0)
+		wantMessage(t, res, "dead reference: notes/x.md does not exist")
+	})
+
+	t.Run("sibling anchors are checked like any other", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"MEMORY.md": "- [ok](here.md#plan)\n- [bad](here.md#nope)\n",
+			"here.md":   "# Here\n\n## Plan\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"MEMORY.md"}, Roots: []string{"."},
+		}})
+		wantCounts(t, res, 1, 0)
+		wantMessage(t, res, `dead anchor: here.md has no heading or anchor "nope"`)
+	})
+
+	t.Run("without the dot root a sibling link is not memlint's business", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"MEMORY.md": "- [gone](gone.md)\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"MEMORY.md"}, Roots: []string{"memory"},
+		}})
+		wantCounts(t, res, 0, 0)
+	})
+
+	t.Run("urls, fragments and placeholders are skipped", func(t *testing.T) {
+		root := writeTree(t, map[string]string{
+			"MEMORY.md": "[u](https://x.io) [m](mailto:a@b.c) [f](#top) [p](<name>.md) [d](YYYY.md)\n",
+		})
+		res := Run(root, &config.Config{Pointers: &config.Pointers{
+			Files: []string{"MEMORY.md"}, Roots: []string{"."},
+		}})
+		wantCounts(t, res, 0, 0)
+	})
+}

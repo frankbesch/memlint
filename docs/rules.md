@@ -207,6 +207,17 @@ That is the whole gate: `memory/notes.md` with `roots = ["memory"]` is memlint's
 responsibility, while `reading/daily` is not, because you never told memlint
 that `reading` exists.
 
+**The root `"."`** (v0.11) is different in kind: it turns on a second pass
+over markdown link and image destinations only, for destinations with no
+slash at all, which resolve against the source file's own directory. It
+exists for flat memory folders — Claude Code's auto-memory is `MEMORY.md`
+beside its notes, indexed as `[Title](note.md)` — where no first-segment
+root could ever match. Inline code spans and bare tokens are excluded from
+that pass on purpose: `a.md` in prose is a word, not a claim. `"."` may sit
+beside named roots; each pass is gated by its own rule. `memlint init`
+infers it when `MEMORY.md` sits beside two or more notes and no markdown
+folder exists.
+
 Anchored references — `memory/notes.md#section` — split at a single `#`.
 The **base file** must exist (since v0.6; a dead base is one `pointers/dead-ref`
 however many anchors point at it), and since v0.9 the **anchor** must resolve

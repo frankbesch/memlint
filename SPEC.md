@@ -644,15 +644,30 @@ G6 CI run id recorded in the commit that follows this one if it is not
 
 # --- v0.11 addendum: gap closure vs agents-lint / ctxlint / claude-healthcheck (approved 2026-09-11, D-### allocated at wrap) ---
 # Source: 2026-09-11 competitor read of giacomo/agents-lint, YawLabs/ctxlint,
-# mister-no-one/claude-healthcheck (READMEs only, code not read). memlint is
-# alone on append_only, mirrors, blocks, human_brief, ids, stamps, and tree
-# receipts. It is behind on first-run friction: both linters run on a bare
-# `npx` with no config, agents-lint checks the Claude Code auto-memory
-# folder, and ctxlint ships a GitHub Action and a pre-commit hook. The
-# parts below close the cheap gaps only. Explicitly NOT pursued: --fix
-# (hard rule 1), an MCP server (scope, no dependency budget), checks of
-# context files against the codebase (npm scripts, framework staleness:
-# a different product), and a score (advisory, not a gate).
+# mister-no-one/claude-healthcheck (READMEs only, code not read; a Codex
+# cross-check the same day corrected two claims, verified against the
+# READMEs before this header was fixed). Among those three, no equivalent
+# was found for append_only against a git baseline, human_brief authorship
+# from git history, ids uniqueness/order/citation, blocks ownership, exact
+# declared mirrors, or tree receipts. ctxlint is the closest neighbour and
+# already covers memory hygiene (session-stale-memory: memory entries whose
+# paths no longer exist; session-memory-index-overflow: MEMORY.md past the
+# Claude Code load cap) plus MCP, skills, sessions, SARIF, a GitHub Action,
+# pre-commit and an MCP server; its distinction from memlint is built-in
+# health model vs owner-declared invariants, not codebase vs memory.
+# agents-lint checks paths, npm scripts, dependencies, framework staleness,
+# structure and Claude memory-file links; it has no secrets, junk, or
+# token-budget rule (an earlier read conflated it with another project).
+# claude-healthcheck is read-only too; memlint's distinction is that
+# `check` has no fix mode at the contract level, while ctxlint and
+# agents-lint expose --fix. memlint is behind on first-run friction: both
+# linters run on a bare `npx` with no config, both check the Claude Code
+# auto-memory folder, and ctxlint ships a GitHub Action and a pre-commit
+# hook. The parts below close the cheap gaps only. Explicitly NOT pursued:
+# --fix (hard rule 1), an MCP server (scope, no dependency budget), checks
+# of context files against the codebase (npm scripts, framework staleness:
+# a different product), SARIF (no consumer yet), and a score (advisory,
+# not a gate).
 
 # --- v0.11 part 1: check runs without a config, and says so (approved 2026-09-11) ---
 
@@ -774,3 +789,48 @@ Nothing to gate beyond the README output test staying green.
 
 Release: parts 1, 2, 4, 5 ship as v0.11.0 in about two sessions. Part 3
 adds a third session and can follow as v0.11.1 without a visible gap.
+
+# --- v0.11 parts 1-5: build receipt (built 2026-09-11, D-### allocated at wrap) ---
+
+Gates run against the working tree that became this commit:
+G1-G5 (part 1) CHECK `go test ./internal/cli` EXPECT ok. The declared
+   gates are tests: TestNoConfigRunsInferredConfigAndSaysSo (G1),
+   TestInferredConfigFailsOnlyUnderStrict (G2),
+   TestNoConfigOnEmptyTreeSaysNothingRan (G3),
+   TestMalformedConfigIsStillAStartupError (G4),
+   TestInferredFindingInEveryFormat (G5). TestMissingConfigIsAStartupError
+   is deleted: its contract (exit 2 on absence) is the one this part
+   replaces. Deviation from the addendum's G3 wording: with the YELLOW
+   present the summary is "0 red, 1 yellow", not "clean (no rules
+   enabled)"; the finding message carries "nothing to infer, so no rules
+   ran" instead, because a run with a YELLOW must not summarize as clean.
+G1-G2 (part 2) CHECK TestInitDiscoversOtherRuntimeInstructionFiles ok;
+   TestInitReportsTiers unchanged and ok.
+G1-G5 (part 3) CHECK TestFlatMemoryFolder (G1, G2, G4) and
+   TestPointersSiblingRoot (five subtests: dead sibling red, source-dir
+   resolution, sibling anchors, no dot root means no check, skips) ok;
+   fixtures unchanged (G3); docs/rules.md and docs/recipes.md updated (G5).
+   Real run: `check ~/.claude/projects/-Users-frankbesch-Documents-memlint/memory`
+   with no config -> config/inferred YELLOW (pointers), 0 red, exit 0.
+G1-G2 (part 4) CHECK the action's download step, extracted from action.yml
+   and run locally with VERSION=latest against the v0.10.0 release EXPECT
+   checksum "memlint_0.10.0_darwin_arm64.tar.gz: OK", `memlint v0.10.0`,
+   and `check --format github examples/broken` -> ::error + ::warning
+   annotations, exit 1. Archive naming fixed during rehearsal
+   (memlint_<ver>_<os>_<arch>.tar.gz, lowercase, no leading v).
+   `uvx pre-commit try-repo <this repo> memlint` on a git copy of
+   examples/broken with MEMORY.md staged EXPECT Failed, exit 1,
+   pointers/dead-ref; the tokens YELLOW on memory/acme.md is absent because
+   --changed narrows to the staged file, which is the hook's design. The
+   in-CI gate is the new "action" job in ci.yml (uses: ./ on examples/broken,
+   asserts outcome == failure); its run id is cited at the tag.
+G-all CHECK gofmt -l empty; go vet clean; go test ./... ok (cli, config,
+   lint, report); fixture-broken 10 red 4 yellow; fixture-clean clean
+   (6 rules, 9 files); fixture-dupids 2 red 0 yellow; examples
+   minimal/shared-instructions/decision-log clean, broken 1 red 1 yellow;
+   README output block matches (TestReadmeOutputMatchesExample).
+G-FBOS CHECK `check --strict ~/Documents/promptkits` EXPECT clean (8 rules,
+   618 files, tree 94405c3993ed), exit 0, one INFO ids/known-duplicate
+   line that predates this build; same with the flags after the path.
+G-CI CI run id recorded in the handoff at wrap if green on the first push;
+   otherwise in the commit that follows this one.

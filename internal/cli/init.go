@@ -123,11 +123,22 @@ type evidence struct {
 	// decisions log by name, and two or more instruction files at the root.
 	decisionsLog     string   // first decisions.md / decision-log.md under an md root
 	instructionFiles []string // of CLAUDE.md, AGENTS.md, GEMINI.md, the ones that exist
+
+	// flatNotes counts markdown files at the root other than MEMORY.md. A
+	// MEMORY.md beside two or more of them, with no md root at all, is a
+	// flat memory folder (Claude Code's auto-memory has that shape), and
+	// the evidence for pointers with the sibling root "." (v0.11).
+	flatNotes int
 }
 
 // indexCandidates are the files agent runtimes conventionally read as memory
 // indexes. Only ones that actually exist are configured.
-var indexCandidates = []string{"MEMORY.md", "CLAUDE.md", "AGENTS.md"}
+var indexCandidates = []string{
+	"MEMORY.md", "CLAUDE.md", "AGENTS.md",
+	// v0.11: the other per-runtime instruction files. Each is plain text
+	// with repo paths in it, so a dead reference in one is the same defect.
+	"GEMINI.md", "COPILOT.md", ".github/copilot-instructions.md", ".cursorrules", "CONVENTIONS.md",
+}
 
 // instructionCandidates are the per-runtime instruction files. Two or more
 // present at the root is the evidence for suggesting [mirrors].
@@ -173,6 +184,9 @@ func inspect(root string) evidence {
 				return nil
 			}
 			rel = filepath.ToSlash(rel)
+			if !strings.Contains(rel, "/") && rel != "MEMORY.md" {
+				ev.flatNotes++
+			}
 			if i := strings.Index(rel, "/"); i > 0 {
 				roots[rel[:i]] = true
 				base := strings.ToLower(d.Name())
@@ -191,6 +205,20 @@ func inspect(root string) evidence {
 	return ev
 }
 
+// flatMemory is the evidence for a flat memory folder: MEMORY.md at the
+// root, two or more sibling notes, and no markdown folder to name as a root.
+func (ev evidence) flatMemory() bool {
+	if len(ev.mdRoots) > 0 || ev.flatNotes < 2 {
+		return false
+	}
+	for _, f := range ev.indexFiles {
+		if f == "MEMORY.md" {
+			return true
+		}
+	}
+	return false
+}
+
 // renderConfig produces the generated file and the report that explains it.
 // The output must always pass config.Load — that property is pinned by test.
 // The file carries only what the evidence supports: enabled sections, and
@@ -207,7 +235,8 @@ func renderConfig(ev evidence) (string, initReport) {
 
 `)
 
-	if len(ev.indexFiles) > 0 && len(ev.mdRoots) > 0 {
+	switch {
+	case len(ev.indexFiles) > 0 && len(ev.mdRoots) > 0:
 		rep.enabled = append(rep.enabled, tierLine{"pointers",
 			strings.Join(ev.indexFiles, ", ") + " -> roots " + strings.Join(ev.mdRoots, ", ")})
 		b.WriteString("# Repo-path references in these files must resolve to files that exist.\n")
@@ -215,8 +244,16 @@ func renderConfig(ev evidence) (string, initReport) {
 		b.WriteString("files = " + tomlList(ev.indexFiles) + "\n")
 		b.WriteString("# A reference is checked only when its first path segment is a root here.\n")
 		b.WriteString("roots = " + tomlList(ev.mdRoots) + "\n\n")
-	} else {
-		rep.notInferred = append(rep.notInferred, tierLine{"pointers", "no index file (MEMORY.md, CLAUDE.md, AGENTS.md) next to a folder of markdown"})
+	case ev.flatMemory():
+		rep.enabled = append(rep.enabled, tierLine{"pointers",
+			fmt.Sprintf("MEMORY.md beside %d notes, no folder -> roots \".\" (sibling links)", ev.flatNotes)})
+		b.WriteString("# Links in MEMORY.md must resolve to the notes beside it.\n")
+		b.WriteString("[pointers]\n")
+		b.WriteString("files = [\"MEMORY.md\"]\n")
+		b.WriteString("# \".\" checks slash-less link destinations against the file's own folder.\n")
+		b.WriteString("roots = [\".\"]\n\n")
+	default:
+		rep.notInferred = append(rep.notInferred, tierLine{"pointers", "no index file (MEMORY.md, CLAUDE.md, AGENTS.md, ...) next to a folder of markdown"})
 	}
 
 	if ev.dsStore || ev.tmpFiles {

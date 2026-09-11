@@ -92,3 +92,20 @@ jobs:
 
       - name: self-check — memlint runs clean on its own repository
         run: ./memlint check --no-color --strict .
+
+  # v0.11 part 4, G1: the composite action must produce annotations on a
+  # real run. examples/broken has 1 red 1 yellow, so the step must fail
+  # with exit 1 and nothing else. `uses: ./` runs this checkout's
+  # action.yml with the latest released binary.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: memlint
+        uses: ./
+        with:
+          path: examples/broken
+        continue-on-error: true
+      - name: the action must fail on the broken example
+        run: |
+          test "${{ steps.memlint.outcome }}" = "failure"

@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -67,7 +68,8 @@ const checkUsage = `memlint check [flags] [path]
 
 Evaluates the invariants declared in <path>/.memlint.toml (path defaults
 to "."). Read-only: it reports drift and never repairs it. Flags may come
-before or after the path.
+before or after the path. With no .memlint.toml it runs the config init
+would write and reports that first as YELLOW config/inferred.
 
 Flags:
   --strict             treat YELLOW findings as failures
@@ -276,6 +278,17 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		return ExitUsage
 	}
 	cfg, err := config.Load(root)
+	var inferred *lint.Finding
+	if errors.Is(err, config.ErrNotFound) {
+		// No config is not a startup error since v0.11: check runs the
+		// config init would write and says so in a YELLOW finding, so an
+		// inferred run can never read as a declared one. Nothing is written.
+		// An invalid config is still exit 2; only absence infers.
+		content, rep := renderConfig(inspect(root))
+		cfg, err = config.Parse(content)
+		f := inferredFinding(rep)
+		inferred = &f
+	}
 	if err != nil {
 		fmt.Fprintf(stderr, "memlint: %v\n", err)
 		return ExitUsage
@@ -284,8 +297,11 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		// --base is an explicit demand for a baseline. A demand that cannot be
 		// honored — or that nothing consumes — must refuse, not silently pass.
 		if cfg.AppendOnly == nil {
-			fmt.Fprintf(stderr, "memlint: --base has no effect: [append_only] is not enabled in %s\n",
-				filepath.Join(root, config.FileName))
+			where := "in " + filepath.Join(root, config.FileName)
+			if inferred != nil {
+				where = "in the inferred config (no " + config.FileName + " at " + root + ")"
+			}
+			fmt.Fprintf(stderr, "memlint: --base has no effect: [append_only] is not enabled %s\n", where)
 			return ExitUsage
 		}
 		if err := lint.ValidateBaseRef(root, *base); err != nil {
@@ -327,6 +343,11 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	if *expectTree != "" {
 		res.ExpectTree(*expectTree)
 	}
+	if inferred != nil {
+		// First line, ahead of the sorted findings: the reader learns that
+		// nothing below was declared before reading any of it.
+		res.Findings = append([]lint.Finding{*inferred}, res.Findings...)
+	}
 
 	switch *format {
 	case "json":
@@ -345,6 +366,27 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		return ExitFindings
 	}
 	return ExitClean
+}
+
+// inferredFinding is the YELLOW that heads every run without a config. It
+// names the rules that ran so the reader knows what was and was not
+// checked, and it fails under --strict, so a CI job that forgot its config
+// is loud rather than clean.
+func inferredFinding(rep initReport) lint.Finding {
+	msg := "not found; nothing to infer, so no rules ran"
+	if len(rep.enabled) > 0 {
+		names := make([]string, len(rep.enabled))
+		for i, l := range rep.enabled {
+			names[i] = l.rule
+		}
+		msg = "not found; ran the inferred config (" + strings.Join(names, ", ") + ")"
+	}
+	return lint.Finding{
+		Rule: "config", Code: "config/inferred", Severity: lint.SeverityYellow,
+		Path:    config.FileName,
+		Message: msg + "; memlint init to keep it",
+		Detail:  "an inferred run checks only what the tree shows; declare the invariants you rely on",
+	}
 }
 
 func isHexPrefix(s string) bool {

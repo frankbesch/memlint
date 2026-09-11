@@ -67,6 +67,15 @@ brew install frankbesch/tap/memlint
 go install github.com/frankbesch/memlint@latest
 ```
 
+Or try it once without installing anything, on the repo you are in:
+
+```bash
+go run github.com/frankbesch/memlint@latest check .
+```
+
+With no `.memlint.toml` yet, `check` runs what it can infer from the tree
+and says so in its first line.
+
 Or download a binary for macOS or Linux from the
 [releases page](https://github.com/frankbesch/memlint/releases) and verify it
 against `checksums.txt`. `memlint --version` tells you what you got.
@@ -116,7 +125,20 @@ reference: [docs/rules.md](docs/rules.md).
 
 ## In CI
 
-A complete pull-request workflow is in
+The shortest form is the action, which fetches the released binary and
+runs `check --format github`:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+- uses: frankbesch/memlint@v0.11.0
+  with:
+    strict: true
+    base: ${{ github.event.pull_request.base.sha }}
+```
+
+A complete pull-request workflow using `go install` instead is in
 [.github/examples/memlint.yml](.github/examples/memlint.yml). The core of it:
 
 ```yaml

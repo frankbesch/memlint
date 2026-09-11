@@ -6,6 +6,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -121,6 +122,11 @@ type HumanBrief struct {
 // reference's first path segment appears in Roots. A Files entry containing
 // glob metacharacters is a pattern matched against root-relative paths; the
 // rest are literal paths.
+//
+// The root "." (v0.11) means something different from a directory name: a
+// markdown link or image destination with no slash at all resolves against
+// the source file's own directory. Only link destinations qualify; a bare
+// word in prose is never a sibling reference.
 type Pointers struct {
 	Files []string `toml:"files"`
 	Roots []string `toml:"roots"`
@@ -217,6 +223,12 @@ func (c *Config) RuleCount() int {
 	return n
 }
 
+// ErrNotFound is wrapped by Load when no config file exists at the root.
+// check tells absence apart from an invalid file through it (v0.11): absence
+// runs the inferred config and says so, an invalid file stays a startup
+// error.
+var ErrNotFound = errors.New("config not found")
+
 // Load reads and validates <root>/.memlint.toml. Every error it returns is a
 // startup error: the caller must exit 2 without running any rule.
 func Load(root string) (*Config, error) {
@@ -224,13 +236,18 @@ func Load(root string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no %s found at %s", FileName, root)
+			return nil, fmt.Errorf("no %s found at %s: %w", FileName, root, ErrNotFound)
 		}
 		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
+	return Parse(string(data))
+}
 
+// Parse decodes and validates config text. It is Load without the file, so
+// the config init would write can be run without writing it.
+func Parse(data string) (*Config, error) {
 	var cfg Config
-	md, err := toml.Decode(string(data), &cfg)
+	md, err := toml.Decode(data, &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", FileName, err)
 	}
@@ -466,7 +483,7 @@ func (p *Pointers) validate() error {
 			return fmt.Errorf("roots[%d]: must not be absolute: %q", i, r)
 		case strings.ContainsAny(r, `/\`):
 			return fmt.Errorf("roots[%d]: must be a single path segment, got %q", i, r)
-		case r == "." || r == "..":
+		case r == "..":
 			return fmt.Errorf("roots[%d]: invalid segment %q", i, r)
 		case seen[r]:
 			return fmt.Errorf("roots[%d]: duplicate root %q", i, r)

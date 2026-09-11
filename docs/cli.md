@@ -11,6 +11,12 @@ memlint --version
 `path` defaults to `.`. memlint reads `.memlint.toml` at that path, runs the
 rules declared there, and writes findings to stdout.
 
+With no `.memlint.toml` at the path (v0.11), `check` runs the config `init`
+would write and reports that first as a YELLOW `config/inferred` finding
+naming the rules that ran. It writes nothing. The YELLOW fails the run
+under `--strict`, so a CI job that forgot its config cannot pass by
+accident. An invalid config is still exit 2; only absence infers.
+
 Real output, from `memlint check --no-color testdata/fixture-broken`:
 
 ```text
@@ -76,7 +82,11 @@ above, `memlint init --help` says what it inspects, `memlint fingerprint
 
 `memlint init [path]` inspects the repo and writes `.memlint.toml`. It
 prints a report in three tiers: **Enabled** (rules with observed evidence,
-written as live sections), **Suggested** (a `decisions.md` by name suggests
+written as live sections: `pointers` on whichever of `MEMORY.md`,
+`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `COPILOT.md`,
+`.github/copilot-instructions.md`, `.cursorrules`, `CONVENTIONS.md` exist
+next to a folder of markdown, or on `MEMORY.md` with the sibling root `"."`
+for a flat memory folder; `junk` on `.DS_Store` or `*.tmp` seen), **Suggested** (a `decisions.md` by name suggests
 `append_only`; two of `CLAUDE.md`, `AGENTS.md`, `GEMINI.md` at the root
 suggest `mirrors`; written as commented sections), and **Not inferred**
 (everything that needs a choice only you can make, with the choice named).

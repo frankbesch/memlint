@@ -178,19 +178,6 @@ func TestNoRulesEnabledSaysSo(t *testing.T) {
 	}
 }
 
-func TestMissingConfigIsAStartupError(t *testing.T) {
-	got := run(t, nil, "check", t.TempDir())
-	if got.code != 2 {
-		t.Errorf("exited %d, want 2", got.code)
-	}
-	if got.stdout != "" {
-		t.Errorf("startup errors must not write to stdout, got: %q", got.stdout)
-	}
-	if !strings.Contains(got.stderr, ".memlint.toml") {
-		t.Errorf("stderr should name the missing file, got: %q", got.stderr)
-	}
-}
-
 func TestFindingsGoToStdoutErrorsToStderr(t *testing.T) {
 	got := run(t, nil, "check", fixture("fixture-broken"))
 	if !strings.Contains(got.stdout, "dead reference") {

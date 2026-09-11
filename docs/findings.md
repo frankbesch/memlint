@@ -383,6 +383,19 @@ the repo's own; a custom hit is named "custom pattern <regex>".
 
 **YELLOW** · A `[secrets]` glob matches nothing, so nothing was scanned.
 
+## config/inferred
+
+**YELLOW** · `check` found no `.memlint.toml` at the target, so it ran the
+config `memlint init` would have written and is telling you. The message
+names the rules that ran, or says that nothing could be inferred. Run
+`memlint init` to keep the config, then declare the invariants you rely on.
+
+Inference enables only what the tree shows: index files that exist, junk
+that is present, a flat memory folder. It never guesses a policy. The
+finding fails the run under `--strict`, so a CI job that forgot its config
+is loud rather than clean. Absence is the only trigger: an invalid config
+stays a startup error (exit 2). Nothing is written. Since v0.11.
+
 ## tree/moved
 
 **RED** · `check --expect-tree <fp>` was given a fingerprint, and the tree
