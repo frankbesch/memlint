@@ -509,3 +509,114 @@ G4 CHECK gofmt -l empty, go vet clean, go test ./... passes; README, CI
    acceptance step, and cli test all read 10 red, 4 yellow.
 G5 CHECK `check --strict ~/Documents/promptkits` EXPECT clean with no new
    findings (FBOS pointer sources carry no anchored refs today).
+
+# --- v0.10 addendum, docs note (shipped 2026-09-11, docs-only, no ruling required) ---
+
+README became the landing page (7 KB); reference sections moved verbatim to
+docs/cli.md, configuration.md, rules.md, tree-receipts.md, development.md;
+docs/recipes.md is backed by examples/{minimal,decision-log,
+shared-instructions,broken}, each held to its stated result by
+internal/cli/examples_test.go, which also keeps the README output block
+byte-identical to the real run. No rule, flag, or output changed. Commits
+5e2478b, 632c0f2, 0547303. Source: Astral review 2026-09-11, items 1-5,
+9, 13-17.
+
+# --- v0.10 addendum, part 1: flags anywhere around the path (DRAFT, pending ruling D-###) ---
+
+Today `memlint check . --strict` is refused with exit 2 because the stdlib
+parser stops at the first positional and a silently ignored flag is worse
+than an error. The refusal is correct; the affordance is not. The parser
+gains a pre-pass that separates recognized flags (with their values) from
+positionals, then parses the flags with the same FlagSet. Result: flags are
+honored before or after the path; more than one positional is still exit 2
+("unexpected argument"); an unknown flag anywhere is still exit 2; `--`
+ends flag parsing as before. Applies to check, init, fingerprint. No
+output or exit-code change on any currently accepted invocation. Deletes
+the "flags must come before the path" paragraph from docs/cli.md.
+
+Gates (D-101, declared before code):
+G1 CHECK `check testdata/fixture-clean --strict` and
+   `check --strict testdata/fixture-clean` EXPECT identical stdout and exit.
+G2 CHECK `check testdata/fixture-broken --format json` EXPECT valid JSON,
+   exit 1, same bytes as the flag-first form.
+G3 CHECK `check --strict a b` EXPECT exit 2, stderr names "b" as unexpected;
+   `check . --bogus` EXPECT exit 2, stderr names --bogus.
+G4 CHECK TestFlagAfterPathIsRefusedNotIgnored becomes
+   TestFlagAfterPathIsHonored; gofmt/vet/test green; fixtures 10/4, clean,
+   2/0 unchanged.
+G5 CHECK `check --strict ~/Documents/promptkits` EXPECT clean.
+G6 CHECK post-push CI run green on ubuntu and macos (`gh run watch
+   --exit-status`), cited by run id.
+
+# --- v0.10 addendum, part 2: per-command help (DRAFT, pending ruling D-###) ---
+
+One usageText serves every command today. Split it: `memlint --help` fits
+one screen (name line, three commands with one-line purposes, "run memlint
+<command> --help"); `check --help` owns flags, exit codes, formats;
+`init --help` owns what it inspects and that it never overwrites;
+`fingerprint --help` owns the receipt semantics and --expect-tree. `memlint
+help <command>` is an alias. Help goes to stdout with exit 0; usage errors
+still print the relevant command's help to stderr with exit 2. Docs
+unchanged; docs/cli.md stays the long form.
+
+Gates:
+G1 CHECK `memlint --help | wc -l` EXPECT <= 24; contains "check", "init",
+   "fingerprint", not "--expect-tree".
+G2 CHECK `check --help` contains every flag in docs/cli.md's flag table (test
+   parses the table and asserts each flag string appears).
+G3 CHECK `init --help` contains "never overwrite"; `fingerprint --help`
+   contains "--expect-tree".
+G4 CHECK `check --bogus` stderr contains the check help, not the init help.
+G5 gofmt/vet/test green; fixtures unchanged. G6 CI green, run id cited.
+
+# --- v0.10 addendum, part 3: init reports what it inferred (DRAFT, pending ruling D-###) ---
+
+init keeps its contract: evidence enables a rule; guesses never do; O_EXCL
+refuses to overwrite. Two changes. (a) The generated file is trimmed to a
+four-line header, the enabled sections, and commented sections ONLY for
+rules init found plausible evidence for; the full commented encyclopedia
+goes. (b) stdout becomes a report in three tiers:
+  Enabled      pointers (MEMORY.md, CLAUDE.md -> roots memory, docs)
+               junk (.DS_Store seen)
+  Suggested    append_only (memory/decisions.md exists)  [commented in file]
+               mirrors (CLAUDE.md and AGENTS.md both present)
+  Not inferred human_brief (authorship is a policy choice)
+               tokens (a budget is a choice)  blocks, ids, stamps, secrets
+  Next         review .memlint.toml, then: memlint check
+Suggestion evidence, exhaustively: append_only when a file named
+decisions.md or decision-log.md exists under an md root; mirrors when two
+or more of CLAUDE.md, AGENTS.md, GEMINI.md exist at the root. Nothing else
+is suggested. The "N rules enabled" summary line is replaced by the report;
+TestInitGeneratesWorkingConfig is updated to assert the Enabled tier.
+
+Gates:
+G1 CHECK init on a temp tree with MEMORY.md + memory/decisions.md + CLAUDE.md
+   + AGENTS.md EXPECT Enabled pointers; Suggested append_only, mirrors;
+   generated file contains "# [append_only]" and "# [mirrors]" commented, no
+   other commented sections; file loads; `check` runs.
+G2 CHECK init on an empty dir EXPECT no Enabled tier, all rules under Not
+   inferred, file loads and `check` says "clean (no rules enabled)".
+G3 CHECK generated file line count on G1's tree EXPECT <= 30.
+G4 CHECK TestInitRefusesOverwrite unchanged and green.
+G5 gofmt/vet/test green; fixtures unchanged. G6 CI green, run id cited.
+
+# --- v0.10 addendum, part 4: init --dry-run (DRAFT, pending ruling D-###) ---
+
+`memlint init --dry-run [path]` performs the same inspection, prints the
+report to stderr and the config that WOULD be written to stdout, and
+writes nothing. It works when .memlint.toml already exists, so discovery
+can be rerun against a configured repo. No --force, now or later: the
+overwrite refusal stays. `check` remains the only other command and stays
+read-only.
+
+Gates:
+G1 CHECK `init --dry-run <dir>` EXPECT exit 0, stdout parses as the config
+   G1 of part 3 would write, and no .memlint.toml exists afterwards.
+G2 CHECK `init --dry-run` on a dir that already has .memlint.toml EXPECT
+   exit 0 and the existing file byte-identical before and after.
+G3 CHECK `init --force` EXPECT exit 2, unknown flag.
+G4 gofmt/vet/test green; fixtures unchanged. G5 CI green, run id cited.
+
+Release: parts 1-4 ship together as v0.10.0. Docs touched: docs/cli.md
+(delete the flag-order paragraph, add --dry-run), README quick start
+(one line on the init report), docs/development.md roadmap.
