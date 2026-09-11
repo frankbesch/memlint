@@ -521,7 +521,7 @@ byte-identical to the real run. No rule, flag, or output changed. Commits
 5e2478b, 632c0f2, 0547303. Source: Astral review 2026-09-11, items 1-5,
 9, 13-17.
 
-# --- v0.10 addendum, part 1: flags anywhere around the path (DRAFT, pending ruling D-###) ---
+# --- v0.10 addendum, part 1: flags anywhere around the path (approved 2026-09-11, D-143 §1) ---
 
 Today `memlint check . --strict` is refused with exit 2 because the stdlib
 parser stops at the first positional and a silently ignored flag is worse
@@ -548,7 +548,7 @@ G5 CHECK `check --strict ~/Documents/promptkits` EXPECT clean.
 G6 CHECK post-push CI run green on ubuntu and macos (`gh run watch
    --exit-status`), cited by run id.
 
-# --- v0.10 addendum, part 2: per-command help (DRAFT, pending ruling D-###) ---
+# --- v0.10 addendum, part 2: per-command help (approved 2026-09-11, D-143 §2) ---
 
 One usageText serves every command today. Split it: `memlint --help` fits
 one screen (name line, three commands with one-line purposes, "run memlint
@@ -569,7 +569,7 @@ G3 CHECK `init --help` contains "never overwrite"; `fingerprint --help`
 G4 CHECK `check --bogus` stderr contains the check help, not the init help.
 G5 gofmt/vet/test green; fixtures unchanged. G6 CI green, run id cited.
 
-# --- v0.10 addendum, part 3: init reports what it inferred (DRAFT, pending ruling D-###) ---
+# --- v0.10 addendum, part 3: init reports what it inferred (approved 2026-09-11, D-143 §3) ---
 
 init keeps its contract: evidence enables a rule; guesses never do; O_EXCL
 refuses to overwrite. Two changes. (a) The generated file is trimmed to a
@@ -600,7 +600,7 @@ G3 CHECK generated file line count on G1's tree EXPECT <= 30.
 G4 CHECK TestInitRefusesOverwrite unchanged and green.
 G5 gofmt/vet/test green; fixtures unchanged. G6 CI green, run id cited.
 
-# --- v0.10 addendum, part 4: init --dry-run (DRAFT, pending ruling D-###) ---
+# --- v0.10 addendum, part 4: init --dry-run (approved 2026-09-11, D-143 §4) ---
 
 `memlint init --dry-run [path]` performs the same inspection, prints the
 report to stderr and the config that WOULD be written to stdout, and
