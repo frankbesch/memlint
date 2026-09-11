@@ -40,10 +40,11 @@ help; `init` reports Enabled / Suggested / Not inferred and writes only
 the sections its evidence supports; `init --dry-run`. Rule expansion is
 frozen until v0.10.0 ships (D-143).
 
-v0.9 futures, in priority order:
-
-1. **`[secrets]` entropy detector** — catch high-entropy strings the
-   shape-based patterns miss, with an allowlist for fixtures.
+Retired 2026-09-11: the `[secrets]` entropy detector. It cannot stay quiet
+on a hash-dense memory repo without an allowlist, and an allowlist is a
+blind spot `check` can never see through (CLAUDE.md, "smallest rule
+surface"). Unprefixed formats belong in `[secrets] patterns` instead.
+No roadmap items remain open; rule expansion stays frozen (D-143).
 
 Shipped in v0.9: anchor validation in `[pointers]` (`pointers/dead-anchor`,
 reserved since v0.6); the tree fingerprint — `memlint fingerprint`, the

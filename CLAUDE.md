@@ -55,7 +55,8 @@ only after the gates pass and the FBOS decision is recorded.
   and fix requests get in-scope changes plus the gate run.
 - Prefer the smallest rule surface that catches the real defect; a rule that
   needs an allowlist to stay quiet on the fixtures is not ready (the
-  `[secrets]` entropy detector is parked for exactly this reason).
+  `[secrets]` entropy detector was retired 2026-09-11 for exactly this
+  reason; unprefixed formats go in `[secrets] patterns`).
 
 ## Voice line
 
