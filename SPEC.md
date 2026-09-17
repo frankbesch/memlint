@@ -909,4 +909,12 @@ G5 CHECK `memvet check --strict ~/Documents/promptkits` clean after the
 G6 CHECK post-push CI green; tag v0.12.0; Release run green; the cask
    `memvet` lands in frankbesch/homebrew-tap; `brew` and `go install`
    paths both resolve.
-Receipt: filled at build.
+Receipt: rename commit 3f984b7; G1-G5 run locally 2026-09-17 (go test ok,
+gofmt empty, vet clean, fixture-broken 10 red 4 yellow, fixture-clean
+clean, fixture-dupids 2 red, examples clean / broken 1 red 1 yellow,
+FBOS strict clean on 641 files with .memvet.toml); GitHub repo renamed
+frankbesch/memvet; CI 35185184785 green; tag v0.12.0; Release run
+35185258423 green with four archives + checksums.txt; cask memvet.rb in
+frankbesch/homebrew-tap (memlint.rb removed, tap 4aaff72); `go install
+github.com/frankbesch/memvet@v0.12.0` resolves and prints v0.12.0;
+~/go/bin/memvet installed, ~/go/bin/memlint removed.
