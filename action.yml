@@ -71,4 +71,4 @@ runs:
         args=()
         [ "$STRICT" = "true" ] && args+=(--strict)
         [ -n "$BASE" ] && args+=(--base "$BASE")
-        memlint check --format github "${args[@]}" "$TARGET"
+        memlint check --format github ${args[@]+"${args[@]}"} "$TARGET"

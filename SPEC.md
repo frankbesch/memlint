@@ -860,3 +860,10 @@ G4 CHECK fixture-broken, fixture-clean, README 60-second block unchanged.
 G5 gofmt/vet/test green.
 Receipt: TestFlatMemoryInferredWithoutSiblingThreshold (G1-G3);
 TestReadmeOutputMatchesExample (G4); `go vet ./... && go test ./...` (G5).
+
+Addendum (2026-09-16, Frank ruled apply-now): action.yml check step used
+`"${args[@]}"` under `set -u`; on bash 3.2 an empty array is an unbound
+variable, so the step failed before memlint ran whenever neither `strict`
+nor `base` was set. Now `${args[@]+"${args[@]}"}`. Receipt: the two
+expansions run on /bin/bash 3.2.57 with an empty and a one-element array.
+Ships with the next tag; @v0.11.1 is unchanged.
