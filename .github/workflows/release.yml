@@ -27,7 +27,35 @@ jobs:
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean
+          install-only: true
+
+      # Homebrew 7.0 deprecated the `postflight` stanza that the cask `install:`
+      # hook renders; GoReleaser v2.19 adds `install_steps` (goreleaser/goreleaser#6870).
+      # `~> v2` floats, so the day v2.19 resolves here is the day the old hook
+      # must already be gone: a tag on the old hook rewrites the tap cask with
+      # the deprecated stanza. This step fails that tag before anything publishes.
+      - name: release preflight — cask hook matches the GoReleaser version
+        run: |
+          set -eu
+          v="$(goreleaser --version | grep -m1 -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+          major="${v%%.*}"; rest="${v#*.}"; minor="${rest%%.*}"
+          steps_capable=0
+          if [ "$major" -gt 2 ] || { [ "$major" -eq 2 ] && [ "$minor" -ge 19 ]; }; then steps_capable=1; fi
+          has_old=0; has_new=0
+          grep -qE '^[[:space:]]+install: \|' .goreleaser.yaml && has_old=1
+          grep -qE '^[[:space:]]+install_steps: \|' .goreleaser.yaml && has_new=1
+          echo "goreleaser $v; install: $has_old; install_steps: $has_new"
+          if [ "$steps_capable" = 1 ] && [ "$has_old" = 1 ]; then
+            echo "::error::GoReleaser $v supports install_steps; swap the hooks.post.install block in .goreleaser.yaml (see the comment there) before tagging" >&2
+            exit 1
+          fi
+          if [ "$steps_capable" = 0 ] && [ "$has_new" = 1 ]; then
+            echo "::error::GoReleaser $v predates install_steps; the config would be rejected" >&2
+            exit 1
+          fi
+
+      - name: goreleaser release
+        run: goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
