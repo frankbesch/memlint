@@ -1,23 +1,23 @@
 # Command line
 
 ```bash
-memlint check [flags] [path]
-memlint init [--dry-run] [path]
-memlint fingerprint [path]
-memlint <command> --help
-memlint --version
+memvet check [flags] [path]
+memvet init [--dry-run] [path]
+memvet fingerprint [path]
+memvet <command> --help
+memvet --version
 ```
 
-`path` defaults to `.`. memlint reads `.memlint.toml` at that path, runs the
+`path` defaults to `.`. memvet reads `.memvet.toml` at that path, runs the
 rules declared there, and writes findings to stdout.
 
-With no `.memlint.toml` at the path (v0.11), `check` runs the config `init`
+With no `.memvet.toml` at the path (v0.11), `check` runs the config `init`
 would write and reports that first as a YELLOW `config/inferred` finding
 naming the rules that ran. It writes nothing. The YELLOW fails the run
 under `--strict`, so a CI job that forgot its config cannot pass by
 accident. An invalid config is still exit 2; only absence infers.
 
-Real output, from `memlint check --no-color testdata/fixture-broken`:
+Real output, from `memvet check --no-color testdata/fixture-broken`:
 
 ```text
 blocks    RED     AGENTS.md:3          ownership block unterminated: start marker has no end marker [blocks/unterminated]
@@ -44,14 +44,14 @@ pointers  YELLOW  notes/*.md           files glob matched no files [pointers/no-
 tokens    YELLOW  memory/medium.md     250 estimated tokens exceeds budget of 200 [tokens/over-budget]
 tokens    YELLOW  notes/missing/*.md   watch glob matched no files [tokens/no-match]
     a stale watch glob is a budget check that silently never runs
-docs: https://github.com/frankbesch/memlint/blob/main/docs/findings.md
-memlint: 10 red, 4 yellow (tree 0c61626c461e)
+docs: https://github.com/frankbesch/memvet/blob/main/docs/findings.md
+memvet: 10 red, 4 yellow (tree 0c61626c461e)
 ```
 
 A clean repository prints one line:
 
 ```text
-memlint: clean (3 rules, 4 files checked, tree 244bcef8bd98)
+memvet: clean (3 rules, 4 files checked, tree 244bcef8bd98)
 ```
 
 ## Flags
@@ -73,14 +73,14 @@ command's help on stderr, never a silent ignore.
 Color turns itself off when stdout is not a terminal, so piped and redirected
 output is always clean.
 
-`memlint --help` is one screen: the three commands and where to go next.
-Each command owns its own help: `memlint check --help` lists the flags
-above, `memlint init --help` says what it inspects, `memlint fingerprint
---help` explains the receipt. `memlint help <command>` is the same thing.
+`memvet --help` is one screen: the three commands and where to go next.
+Each command owns its own help: `memvet check --help` lists the flags
+above, `memvet init --help` says what it inspects, `memvet fingerprint
+--help` explains the receipt. `memvet help <command>` is the same thing.
 
 ## init
 
-`memlint init [path]` inspects the repo and writes `.memlint.toml`. It
+`memvet init [path]` inspects the repo and writes `.memvet.toml`. It
 prints a report in three tiers: **Enabled** (rules with observed evidence,
 written as live sections: `pointers` on whichever of `MEMORY.md`,
 `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `COPILOT.md`,
@@ -92,12 +92,12 @@ suggest `mirrors`; written as commented sections), and **Not inferred**
 (everything that needs a choice only you can make, with the choice named).
 The suggestion list is closed: nothing else is ever guessed.
 
-`memlint init --dry-run [path]` runs the same inspection, prints the config
+`memvet init --dry-run [path]` runs the same inspection, prints the config
 it would write to stdout and the report to stderr, and writes nothing. It
 works when a config already exists, so discovery can be rerun on a
 configured repo. init never overwrites, and there is no `--force`.
 
-`memlint --version` (top-level, before any command) prints the version and
+`memvet --version` (top-level, before any command) prints the version and
 exits 0.
 
 `--changed` is the short-wrap mode: every rule still runs, but only findings
@@ -116,11 +116,11 @@ described in [tree-receipts.md](tree-receipts.md).
 |------|---------|
 | `0` | no RED findings |
 | `1` | RED findings, or YELLOW findings with `--strict` |
-| `2` | usage error, or a missing/invalid `.memlint.toml` |
+| `2` | usage error, or a missing/invalid `.memvet.toml` |
 
 Exit 2 is reserved for failures that happen **before** any invariant is
 evaluated. It never overlaps with a real result, so CI can tell "your memory
-repo is broken" apart from "memlint is misconfigured."
+repo is broken" apart from "memvet is misconfigured."
 
 ## In GitHub Actions
 
@@ -129,7 +129,7 @@ request diff — `::error` for RED, `::warning` for YELLOW, `::notice` for
 INFO:
 
 ```yaml
-- run: memlint check --format github --strict .
+- run: memvet check --format github --strict .
 ```
 
 Every finding carries a stable machine code (`pointers/dead-ref`,
@@ -157,7 +157,7 @@ deterministic order:
       "related_path": "memory/missing.md",
       "line": 7,
       "message": "dead reference: memory/missing.md does not exist",
-      "doc_url": "https://github.com/frankbesch/memlint/blob/main/docs/findings.md#pointersdead-ref"
+      "doc_url": "https://github.com/frankbesch/memvet/blob/main/docs/findings.md#pointersdead-ref"
     }
   ],
   "summary": {

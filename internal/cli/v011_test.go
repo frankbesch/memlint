@@ -37,13 +37,13 @@ func TestNoConfigRunsInferredConfigAndSaysSo(t *testing.T) {
 	if got.code != 1 || got.stderr != "" {
 		t.Fatalf("exit %d, stderr %q\n%s", got.code, got.stderr, got.stdout)
 	}
-	if !strings.HasPrefix(lines[0], "config ") || !strings.Contains(lines[0], "YELLOW  .memlint.toml") || !strings.Contains(lines[0], "[config/inferred]") || !strings.Contains(lines[0], "(pointers)") {
+	if !strings.HasPrefix(lines[0], "config ") || !strings.Contains(lines[0], "YELLOW  .memvet.toml") || !strings.Contains(lines[0], "[config/inferred]") || !strings.Contains(lines[0], "(pointers)") {
 		t.Errorf("first line must be the config/inferred YELLOW naming the rules, got %q", lines[0])
 	}
 	if !strings.Contains(got.stdout, "[pointers/dead-ref]") {
 		t.Errorf("the inferred pointers rule must have run:\n%s", got.stdout)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".memlint.toml")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".memvet.toml")); !os.IsNotExist(err) {
 		t.Errorf("check must not write a config (stat err: %v)", err)
 	}
 }
@@ -72,7 +72,7 @@ func TestNoConfigOnEmptyTreeSaysNothingRan(t *testing.T) {
 
 // Part 1, G4: an invalid config is still a startup error; only absence infers.
 func TestMalformedConfigIsStillAStartupError(t *testing.T) {
-	dir := tree(t, map[string]string{".memlint.toml": "[bogus]\nx = 1\n"})
+	dir := tree(t, map[string]string{".memvet.toml": "[bogus]\nx = 1\n"})
 	got := run(t, nil, "check", dir)
 	if got.code != 2 || got.stdout != "" || !strings.Contains(got.stderr, "unknown key") {
 		t.Errorf("exit %d, stdout %q, stderr %q", got.code, got.stdout, got.stderr)
@@ -131,7 +131,7 @@ func TestFlatMemoryFolder(t *testing.T) {
 		t.Fatalf("init should infer the sibling root: exit %d\n%s%s", got.code, got.stdout, got.stderr)
 	}
 	got = run(t, nil, "check", "--no-color", dir)
-	if got.code != 1 || strings.Count(got.stdout, "[pointers/dead-ref]") != 1 || !strings.Contains(got.stdout, "MEMORY.md:3    dead reference: gone.md") {
+	if got.code != 1 || strings.Count(got.stdout, "[pointers/dead-ref]") != 1 || !strings.Contains(got.stdout, "MEMORY.md:3   dead reference: gone.md") {
 		t.Errorf("exactly one dead sibling link expected:\n%s", got.stdout)
 	}
 	if strings.Contains(got.stdout, "a.md") {
@@ -143,8 +143,8 @@ func TestFlatMemoryFolder(t *testing.T) {
 // and name the real command. The end-to-end run is the CI job "action".
 func TestActionAndPreCommitFilesExist(t *testing.T) {
 	for file, want := range map[string]string{
-		"action.yml":             "memlint check --format github",
-		".pre-commit-hooks.yaml": "entry: memlint check --changed",
+		"action.yml":             "memvet check --format github",
+		".pre-commit-hooks.yaml": "entry: memvet check --changed",
 	} {
 		b, err := os.ReadFile(filepath.Join("..", "..", file))
 		if err != nil {

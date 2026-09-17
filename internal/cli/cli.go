@@ -1,4 +1,4 @@
-// Package cli implements memlint's command line: argument parsing, exit codes,
+// Package cli implements memvet's command line: argument parsing, exit codes,
 // and output selection.
 package cli
 
@@ -12,19 +12,19 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/config"
-	"github.com/frankbesch/memlint/internal/lint"
-	"github.com/frankbesch/memlint/internal/report"
+	"github.com/frankbesch/memvet/internal/config"
+	"github.com/frankbesch/memvet/internal/lint"
+	"github.com/frankbesch/memvet/internal/report"
 	"golang.org/x/term"
 )
 
 // version is injected by release builds via
-// -ldflags "-X github.com/frankbesch/memlint/internal/cli.version=vX.Y.Z".
+// -ldflags "-X github.com/frankbesch/memvet/internal/cli.version=vX.Y.Z".
 // The symbol name is part of the release contract: .goreleaser.yaml points at
 // it, and a test builds with -X to pin it.
 var version = ""
 
-// Version resolves what "memlint --version" reports: the injected release
+// Version resolves what "memvet --version" reports: the injected release
 // version, else the module version recorded by `go install`, else "dev".
 func Version() string {
 	if version != "" {
@@ -44,31 +44,31 @@ const (
 	ExitClean = 0
 	// ExitFindings means an invariant was violated or could not be verified.
 	ExitFindings = 1
-	// ExitUsage means memlint could not start: bad arguments, or a missing or
+	// ExitUsage means memvet could not start: bad arguments, or a missing or
 	// invalid config. It never overlaps with a real result.
 	ExitUsage = 2
 )
 
-const topUsage = `memlint - integrity checks for file-based AI agent state
+const topUsage = `memvet - integrity checks for file-based AI agent state
 
 Usage:
-  memlint <command> [flags] [path]
-  memlint --version
+  memvet <command> [flags] [path]
+  memvet --version
 
 Commands:
-  check         verify the invariants declared in <path>/.memlint.toml
-  init          write a starter .memlint.toml from what the repo shows
+  check         verify the invariants declared in <path>/.memvet.toml
+  init          write a starter .memvet.toml from what the repo shows
   fingerprint   print the fingerprint of the tree check would judge
 
-Run "memlint <command> --help" for that command's flags. Flags may come
-before or after the path. Docs: https://github.com/frankbesch/memlint
+Run "memvet <command> --help" for that command's flags. Flags may come
+before or after the path. Docs: https://github.com/frankbesch/memvet
 `
 
-const checkUsage = `memlint check [flags] [path]
+const checkUsage = `memvet check [flags] [path]
 
-Evaluates the invariants declared in <path>/.memlint.toml (path defaults
+Evaluates the invariants declared in <path>/.memvet.toml (path defaults
 to "."). Read-only: it reports drift and never repairs it. Flags may come
-before or after the path. With no .memlint.toml it runs the config init
+before or after the path. With no .memvet.toml it runs the config init
 would write and reports that first as YELLOW config/inferred.
 
 Flags:
@@ -88,27 +88,27 @@ Flags:
 Exit codes:
   0  no RED findings
   1  RED findings, or YELLOW findings with --strict
-  2  usage error, or missing/invalid .memlint.toml
+  2  usage error, or missing/invalid .memvet.toml
 `
 
-const initUsage = `memlint init [flags] [path]
+const initUsage = `memvet init [flags] [path]
 
 Inspects the repository at <path> (default ".") and writes a starter
-.memlint.toml. Rules are enabled on evidence only: an index file such as
+.memvet.toml. Rules are enabled on evidence only: an index file such as
 MEMORY.md turns on [pointers], observed .DS_Store or *.tmp files turn on
 [junk]. Rules with plausible but unconfirmed evidence are written as
 commented sections; everything else is left out and listed as not
-inferred. init will never overwrite an existing .memlint.toml, and it is
-the only memlint command that writes a file.
+inferred. init will never overwrite an existing .memvet.toml, and it is
+the only memvet command that writes a file.
 
 Flags:
   --dry-run            print the config that would be written to stdout
                        and the report to stderr; write nothing. Works
-                       when a .memlint.toml already exists.
+                       when a .memvet.toml already exists.
   -h, --help           show this help
 `
 
-const fingerprintUsage = `memlint fingerprint [path]
+const fingerprintUsage = `memvet fingerprint [path]
 
 Prints the SHA-256 fingerprint of the tree check would judge at <path>
 (default "."): every visible regular file's path, size, and content hash,
@@ -119,7 +119,7 @@ is present; without git, every file under the root except .git/.
 Every check summary ends with the first 12 hex of this value. Hold a later
 run to it with:
 
-  memlint check --expect-tree <fp> [path]
+  memvet check --expect-tree <fp> [path]
 
 which turns a tree that changed in between into one RED tree/moved.
 
@@ -127,10 +127,10 @@ Flags:
   -h, --help           show this help
 `
 
-// Main runs memlint and returns the process exit code.
+// Main runs memvet and returns the process exit code.
 func Main(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "memlint: no command given")
+		fmt.Fprintln(stderr, "memvet: no command given")
 		fmt.Fprint(stderr, topUsage)
 		return ExitUsage
 	}
@@ -143,13 +143,13 @@ func Main(args []string, stdout, stderr io.Writer) int {
 	case "init":
 		return runInit(args[1:], stdout, stderr)
 	case "help":
-		// "memlint help <command>" is an alias for "memlint <command> --help".
+		// "memvet help <command>" is an alias for "memvet <command> --help".
 		if len(args) > 1 {
 			if u, ok := commandUsage[args[1]]; ok {
 				fmt.Fprint(stdout, u)
 				return ExitClean
 			}
-			fmt.Fprintf(stderr, "memlint: unknown command %q\n", args[1])
+			fmt.Fprintf(stderr, "memvet: unknown command %q\n", args[1])
 			fmt.Fprint(stderr, topUsage)
 			return ExitUsage
 		}
@@ -159,10 +159,10 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, topUsage)
 		return ExitClean
 	case "--version":
-		fmt.Fprintln(stdout, "memlint "+Version())
+		fmt.Fprintln(stdout, "memvet "+Version())
 		return ExitClean
 	default:
-		fmt.Fprintf(stderr, "memlint: unknown command %q\n", args[0])
+		fmt.Fprintf(stderr, "memvet: unknown command %q\n", args[0])
 		fmt.Fprint(stderr, topUsage)
 		return ExitUsage
 	}
@@ -204,7 +204,7 @@ func parseCommand(fs *flag.FlagSet, args []string, usage string, stdout, stderr 
 			}
 			f := fs.Lookup(name)
 			if f == nil {
-				fmt.Fprintf(stderr, "memlint: unknown flag %q\n", a)
+				fmt.Fprintf(stderr, "memvet: unknown flag %q\n", a)
 				fmt.Fprint(stderr, usage)
 				return "", ExitUsage, true
 			}
@@ -217,7 +217,7 @@ func parseCommand(fs *flag.FlagSet, args []string, usage string, stdout, stderr 
 				continue
 			}
 			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "memlint: flag %s needs a value\n", a)
+				fmt.Fprintf(stderr, "memvet: flag %s needs a value\n", a)
 				fmt.Fprint(stderr, usage)
 				return "", ExitUsage, true
 			}
@@ -228,12 +228,12 @@ func parseCommand(fs *flag.FlagSet, args []string, usage string, stdout, stderr 
 		}
 	}
 	if err := fs.Parse(flags); err != nil {
-		fmt.Fprintf(stderr, "memlint: %v\n", err)
+		fmt.Fprintf(stderr, "memvet: %v\n", err)
 		fmt.Fprint(stderr, usage)
 		return "", ExitUsage, true
 	}
 	if len(positionals) > 1 {
-		fmt.Fprintf(stderr, "memlint: unexpected argument %q (one path at most)\n", positionals[1])
+		fmt.Fprintf(stderr, "memvet: unexpected argument %q (one path at most)\n", positionals[1])
 		fmt.Fprint(stderr, usage)
 		return "", ExitUsage, true
 	}
@@ -262,19 +262,19 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		return code
 	}
 	if *format != "text" && *format != "json" && *format != "github" {
-		fmt.Fprintf(stderr, "memlint: unknown format %q (want \"text\", \"json\", or \"github\")\n", *format)
+		fmt.Fprintf(stderr, "memvet: unknown format %q (want \"text\", \"json\", or \"github\")\n", *format)
 		return ExitUsage
 	}
 
-	// Startup checks. Anything wrong here is exit 2: memlint has not evaluated a
+	// Startup checks. Anything wrong here is exit 2: memvet has not evaluated a
 	// single invariant yet, so reporting a finding would misrepresent the run.
 	info, err := os.Stat(root)
 	if err != nil {
-		fmt.Fprintf(stderr, "memlint: cannot read target %s: %v\n", root, err)
+		fmt.Fprintf(stderr, "memvet: cannot read target %s: %v\n", root, err)
 		return ExitUsage
 	}
 	if !info.IsDir() {
-		fmt.Fprintf(stderr, "memlint: target %s is not a directory\n", root)
+		fmt.Fprintf(stderr, "memvet: target %s is not a directory\n", root)
 		return ExitUsage
 	}
 	cfg, err := config.Load(root)
@@ -290,7 +290,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		inferred = &f
 	}
 	if err != nil {
-		fmt.Fprintf(stderr, "memlint: %v\n", err)
+		fmt.Fprintf(stderr, "memvet: %v\n", err)
 		return ExitUsage
 	}
 	if *base != "" {
@@ -301,11 +301,11 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 			if inferred != nil {
 				where = "in the inferred config (no " + config.FileName + " at " + root + ")"
 			}
-			fmt.Fprintf(stderr, "memlint: --base has no effect: [append_only] is not enabled %s\n", where)
+			fmt.Fprintf(stderr, "memvet: --base has no effect: [append_only] is not enabled %s\n", where)
 			return ExitUsage
 		}
 		if err := lint.ValidateBaseRef(root, *base); err != nil {
-			fmt.Fprintf(stderr, "memlint: %v\n", err)
+			fmt.Fprintf(stderr, "memvet: %v\n", err)
 			return ExitUsage
 		}
 		cfg.AppendOnly.BaseRef = *base
@@ -313,7 +313,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 
 	absRoot, err := filepath.Abs(root)
 	if err != nil {
-		fmt.Fprintf(stderr, "memlint: cannot resolve target %s: %v\n", root, err)
+		fmt.Fprintf(stderr, "memvet: cannot resolve target %s: %v\n", root, err)
 		return ExitUsage
 	}
 
@@ -323,20 +323,20 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		// refuse, not silently widen back to a full run.
 		changedSet, err = lint.ChangedFiles(absRoot)
 		if err != nil {
-			fmt.Fprintf(stderr, "memlint: %v\n", err)
+			fmt.Fprintf(stderr, "memvet: %v\n", err)
 			return ExitUsage
 		}
 	}
 
 	if *expectTree != "" && !isHexPrefix(*expectTree) {
-		fmt.Fprintf(stderr, "memlint: --expect-tree wants 12 to 64 hex characters, got %q\n", *expectTree)
+		fmt.Fprintf(stderr, "memvet: --expect-tree wants 12 to 64 hex characters, got %q\n", *expectTree)
 		return ExitUsage
 	}
 
 	res := lint.RunChanged(absRoot, cfg, changedSet)
 	tree, err := lint.Fingerprint(absRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "memlint: %v\n", err)
+		fmt.Fprintf(stderr, "memvet: %v\n", err)
 		return ExitUsage
 	}
 	res.Tree = tree
@@ -358,7 +358,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		err = report.Text(stdout, res, useColor(*noColor, *format, stdout))
 	}
 	if err != nil {
-		fmt.Fprintf(stderr, "memlint: writing output: %v\n", err)
+		fmt.Fprintf(stderr, "memvet: writing output: %v\n", err)
 		return ExitUsage
 	}
 
@@ -384,7 +384,7 @@ func inferredFinding(rep initReport) lint.Finding {
 	return lint.Finding{
 		Rule: "config", Code: "config/inferred", Severity: lint.SeverityYellow,
 		Path:    config.FileName,
-		Message: msg + "; memlint init to keep it",
+		Message: msg + "; memvet init to keep it",
 		Detail:  "an inferred run checks only what the tree shows; declare the invariants you rely on",
 	}
 }
@@ -411,16 +411,16 @@ func runFingerprint(args []string, stdout, stderr io.Writer) int {
 	}
 	info, err := os.Stat(root)
 	if err != nil {
-		fmt.Fprintf(stderr, "memlint: cannot read target %s: %v\n", root, err)
+		fmt.Fprintf(stderr, "memvet: cannot read target %s: %v\n", root, err)
 		return ExitUsage
 	}
 	if !info.IsDir() {
-		fmt.Fprintf(stderr, "memlint: target %s is not a directory\n", root)
+		fmt.Fprintf(stderr, "memvet: target %s is not a directory\n", root)
 		return ExitUsage
 	}
 	fp, err := lint.Fingerprint(root)
 	if err != nil {
-		fmt.Fprintf(stderr, "memlint: %v\n", err)
+		fmt.Fprintf(stderr, "memvet: %v\n", err)
 		return ExitUsage
 	}
 	fmt.Fprintln(stdout, fp)

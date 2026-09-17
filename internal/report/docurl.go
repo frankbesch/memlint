@@ -5,7 +5,7 @@ import "strings"
 // DocBase is the canonical home of the finding-code documentation. Pinned to
 // main rather than a tag: the docs page keeps entries for every code that ever
 // shipped, so main is always at least as complete as the binary linking to it.
-const DocBase = "https://github.com/frankbesch/memlint/blob/main/docs/findings.md"
+const DocBase = "https://github.com/frankbesch/memvet/blob/main/docs/findings.md"
 
 // DocURL maps a finding code to its documentation anchor. GitHub's heading
 // anchors keep letters, digits, underscores, and dashes and strip the slash,

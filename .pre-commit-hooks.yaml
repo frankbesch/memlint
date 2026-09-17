@@ -1,18 +1,18 @@
-# pre-commit framework hook (https://pre-commit.com). Builds memlint from this
+# pre-commit framework hook (https://pre-commit.com). Builds memvet from this
 # repository at the pinned rev with `go install`, so the hook needs a Go
 # toolchain and nothing else. Usage in .pre-commit-config.yaml:
 #
-#   - repo: https://github.com/frankbesch/memlint
-#     rev: v0.11.1
+#   - repo: https://github.com/frankbesch/memvet
+#     rev: v0.12.0
 #     hooks:
-#       - id: memlint
+#       - id: memvet
 #
 # --changed keeps the hook to findings that touch files you are about to
 # commit; drop it (args: []) to run the full check every time.
-- id: memlint
-  name: memlint
+- id: memvet
+  name: memvet
   description: Integrity checks for file-based AI agent state
-  entry: memlint check --changed
+  entry: memvet check --changed
   language: golang
   pass_filenames: false
   always_run: true

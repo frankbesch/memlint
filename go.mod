@@ -1,4 +1,4 @@
-module github.com/frankbesch/memlint
+module github.com/frankbesch/memvet
 
 go 1.21
 

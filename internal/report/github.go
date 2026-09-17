@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/lint"
+	"github.com/frankbesch/memvet/internal/lint"
 )
 
 // GitHub writes one workflow-command annotation per finding, so findings
@@ -31,7 +31,7 @@ func GitHub(w io.Writer, res lint.Result) error {
 		if f.Line > 0 {
 			props += ",line=" + strconv.Itoa(f.Line)
 		}
-		props += ",title=" + escapeProp("memlint "+f.Code)
+		props += ",title=" + escapeProp("memvet "+f.Code)
 
 		msg := f.Message
 		if f.RelatedPath != "" && !strings.Contains(msg, f.RelatedPath) {
@@ -55,7 +55,7 @@ func summaryLine(w io.Writer, res lint.Result) error {
 		_, err := fmt.Fprintln(w, cleanLine(res))
 		return err
 	}
-	_, err := fmt.Fprintf(w, "memlint: %d red, %d yellow\n", res.Red(), res.Yellow())
+	_, err := fmt.Fprintf(w, "memvet: %d red, %d yellow\n", res.Red(), res.Yellow())
 	return err
 }
 

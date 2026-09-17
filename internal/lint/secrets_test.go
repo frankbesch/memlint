@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 func runSecrets(root string, cfg *config.Secrets) Result {

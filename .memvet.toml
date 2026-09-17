@@ -1,4 +1,4 @@
-# memlint checking itself.
+# memvet checking itself.
 #
 # Only rules that genuinely apply to this repository are enabled. There are no
 # placeholder sections here just to light up every rule: an invariant nobody
@@ -24,7 +24,7 @@ roots = ["docs", "examples", "internal", "testdata", ".github"]
 [junk]
 globs = [".DS_Store"]
 
-# The README is the landing page. A budget on it is memlint guarding its own
+# The README is the landing page. A budget on it is memvet guarding its own
 # usability: the 2026-09-11 rewrite landed at roughly 2,000 tokens after the
 # reference material moved to docs/.
 [tokens]

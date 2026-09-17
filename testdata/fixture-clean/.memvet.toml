@@ -1,4 +1,4 @@
-# A repository whose invariants all hold. memlint must exit 0 here with one
+# A repository whose invariants all hold. memvet must exit 0 here with one
 # green line and no findings.
 
 [mirrors]

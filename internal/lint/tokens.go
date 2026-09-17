@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"unicode/utf8"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 const ruleTokens = "tokens"
@@ -79,7 +79,7 @@ func checkTokens(r *runner, cfg *config.Tokens) {
 // EstimateTokens approximates a token count as one token per four characters,
 // rounded up. It counts runes, not bytes, so a document of multibyte
 // characters is not overcounted several times over. This is an estimate and is
-// reported as one -- memlint does not run a tokenizer.
+// reported as one -- memvet does not run a tokenizer.
 func EstimateTokens(s string) int {
 	return (utf8.RuneCountInString(s) + 3) / 4
 }

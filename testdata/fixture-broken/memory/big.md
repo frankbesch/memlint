@@ -1,7 +1,7 @@
 # Oversized note
 
 This note is deliberately larger than the token budget declared in
-`.memlint.toml`. The tokens rule is advisory, so it produces a YELLOW finding
+`.memvet.toml`. The tokens rule is advisory, so it produces a YELLOW finding
 rather than a RED one: a file over budget is a cost and attention problem, not
 a broken invariant. Nothing here is dead, mirrored, or append-only.
 
@@ -12,11 +12,11 @@ grows without anyone noticing quietly taxes every request made against the
 repository it lives in, and the cost is invisible at the point where the growth
 happens. Nobody edits a file and thinks about the aggregate. The rule exists to
 put a number on that drift and to put the number somewhere a human will see it,
-which is the same reason the rest of memlint exists.
+which is the same reason the rest of memvet exists.
 
 ## Why the count is an estimate
 
-memlint does not run a tokenizer. It divides the character count by four and
+memvet does not run a tokenizer. It divides the character count by four and
 rounds up, which is close enough to catch a file that doubled in size and not
 close enough to argue about. Running a real tokenizer would mean picking a
 model family, vendoring a vocabulary, and keeping both current, in exchange for

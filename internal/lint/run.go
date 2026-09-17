@@ -1,4 +1,4 @@
-// Package lint evaluates memlint's rules against a repository root.
+// Package lint evaluates memvet's rules against a repository root.
 //
 // Every rule is read-only. Nothing in this package creates, modifies, moves, or
 // deletes a file, and there is no autofix path to add one to.
@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 // Run evaluates every enabled rule against root. root must already exist; the

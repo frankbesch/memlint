@@ -36,41 +36,41 @@ jobs:
         run: go test ./...
 
       - name: build
-        run: go build -o ./memlint .
+        run: go build -o ./memvet .
 
       # The fixtures are the acceptance contract: exact finding counts and
       # exact exit codes. A rule that over-reports or goes quiet fails here.
       - name: acceptance — broken fixture exits 1 with 10 red, 4 yellow
         run: |
           set +e
-          out=$(./memlint check --no-color testdata/fixture-broken)
+          out=$(./memvet check --no-color testdata/fixture-broken)
           code=$?
           set -e
           echo "$out"
           [ "$code" -eq 1 ]
-          echo "$out" | tail -1 | grep -q "^memlint: 10 red, 4 yellow"
+          echo "$out" | tail -1 | grep -q "^memvet: 10 red, 4 yellow"
 
       - name: acceptance — clean fixture exits 0
         run: |
-          out=$(./memlint check --no-color testdata/fixture-clean)
+          out=$(./memvet check --no-color testdata/fixture-clean)
           echo "$out"
-          echo "$out" | grep -q "^memlint: clean"
+          echo "$out" | grep -q "^memvet: clean"
 
       - name: acceptance — dupids fixture exits 1 with 2 red, 0 yellow
         run: |
           set +e
-          out=$(./memlint check --no-color testdata/fixture-dupids)
+          out=$(./memvet check --no-color testdata/fixture-dupids)
           code=$?
           set -e
           echo "$out"
           [ "$code" -eq 1 ]
-          echo "$out" | tail -1 | grep -q "^memlint: 2 red, 0 yellow"
+          echo "$out" | tail -1 | grep -q "^memvet: 2 red, 0 yellow"
 
       - name: acceptance — yellow fixture exits 0, fails under --strict
         run: |
-          ./memlint check --no-color testdata/fixture-yellow
+          ./memvet check --no-color testdata/fixture-yellow
           set +e
-          ./memlint check --no-color --strict testdata/fixture-yellow
+          ./memvet check --no-color --strict testdata/fixture-yellow
           code=$?
           set -e
           [ "$code" -eq 1 ]
@@ -81,17 +81,17 @@ jobs:
       - name: examples — recipes produce the results they claim
         run: |
           for e in minimal shared-instructions; do
-            ./memlint check --no-color "examples/$e" | tail -1 | grep -q "^memlint: clean" || exit 1
+            ./memvet check --no-color "examples/$e" | tail -1 | grep -q "^memvet: clean" || exit 1
           done
           set +e
-          out=$(./memlint check --no-color examples/broken); code=$?
+          out=$(./memvet check --no-color examples/broken); code=$?
           set -e
           echo "$out"
           [ "$code" -eq 1 ]
-          echo "$out" | tail -1 | grep -q "^memlint: 1 red, 1 yellow"
+          echo "$out" | tail -1 | grep -q "^memvet: 1 red, 1 yellow"
 
-      - name: self-check — memlint runs clean on its own repository
-        run: ./memlint check --no-color --strict .
+      - name: self-check — memvet runs clean on its own repository
+        run: ./memvet check --no-color --strict .
 
   # v0.11 part 4, G1: the composite action must produce annotations on a
   # real run. examples/broken has 1 red 1 yellow, so the step must fail
@@ -101,11 +101,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - id: memlint
+      - id: memvet
         uses: ./
         with:
           path: examples/broken
         continue-on-error: true
       - name: the action must fail on the broken example
         run: |
-          test "${{ steps.memlint.outcome }}" = "failure"
+          test "${{ steps.memvet.outcome }}" = "failure"

@@ -1,10 +1,11 @@
-# memlint — agent contract
+# memvet — agent contract
 
 This file is the maintainer's contract with AI coding agents working in this
 repo. Users want README.md; contributors want CONTRIBUTING.md.
 
-memlint is Frank Besch's invariant checker for file-based agent memory
-(Go, MIT, `github.com/frankbesch/memlint`). Think `fsck`, not ESLint. It
+memvet is Frank Besch's invariant checker for file-based agent memory
+(Go, MIT, `github.com/frankbesch/memvet`). Think `go vet` or `fsck`, not
+ESLint. It
 reads a repo of markdown that AI runtimes treat as memory and reports the
 declared invariants that broke. README.md is the user manual and is
 authoritative on behavior; SPEC.md is the build log (versioned addenda);
@@ -13,7 +14,7 @@ docs/findings.md is the finding-code reference.
 ## Hard rules
 
 1. `check` is read-only forever. Never add a `--fix`, an autofix path, or
-   any write outside `memlint init`. Unverifiable is RED, never silent.
+   any write outside `memvet init`. Unverifiable is RED, never silent.
 2. Every behavior change starts as a SPEC.md addendum with numbered gates
    (G1–G5 pattern: tests, gofmt/vet, fixture counts, self-check on FBOS,
    receipt). A gate is a command, its exit status, and the matching output
@@ -26,7 +27,7 @@ docs/findings.md is the finding-code reference.
    reworded, codes may not.
 5. Dependencies: BurntSushi/toml and golang.org/x/term only. stdlib `flag`,
    no cobra.
-6. This repo is a consumer of itself and of FBOS: `~/go/bin/memlint` is the
+6. This repo is a consumer of itself and of FBOS: `~/go/bin/memvet` is the
    binary the FBOS wrap and push gate run. After a shipped change, reinstall
    it (`go install .`) and say so; a stale wrap binary is a silent gate.
 
@@ -35,11 +36,11 @@ docs/findings.md is the finding-code reference.
 ```bash
 go test ./...                                   # must be green
 gofmt -l . && go vet ./...                      # both empty / clean
-go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 10 red, 4 yellow, exit 1
-./memlint check --no-color testdata/fixture-clean    # clean, exit 0
-./memlint check --strict ~/Documents/promptkits      # self-check on FBOS
-go install .                                    # refresh ~/go/bin/memlint
+go build -o ./memvet .
+./memvet check --no-color testdata/fixture-broken   # 10 red, 4 yellow, exit 1
+./memvet check --no-color testdata/fixture-clean    # clean, exit 0
+./memvet check --strict ~/Documents/promptkits      # self-check on FBOS
+go install .                                    # refresh ~/go/bin/memvet
 goreleaser release --snapshot --clean --skip=publish # rehearse a release
 ```
 
@@ -61,5 +62,5 @@ only after the gates pass and the FBOS decision is recorded.
 ## Voice line
 
 When spoken to through backtalk, the assistant is FBOS in this repo: answer
-about memlint's state, rules, gates, and roadmap; route rulings and wraps to
+about memvet's state, rules, gates, and roadmap; route rulings and wraps to
 the typed promptkits session.

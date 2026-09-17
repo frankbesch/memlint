@@ -1,5 +1,5 @@
 # The minimal recipe, on a repo where two things went wrong.
-# memlint check examples/broken exits 1 with 1 red, 1 yellow.
+# memvet check examples/broken exits 1 with 1 red, 1 yellow.
 
 [pointers]
 files = ["MEMORY.md"]

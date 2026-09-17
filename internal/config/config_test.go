@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// withConfig writes a .memlint.toml into a fresh directory and loads it.
+// withConfig writes a .memvet.toml into a fresh directory and loads it.
 func withConfig(t *testing.T, body string) (*Config, error) {
 	t.Helper()
 	dir := t.TempDir()
@@ -65,7 +65,7 @@ budget = 100
 }
 
 // Every case here must be rejected before a single rule runs. Silently ignoring
-// a key memlint does not understand would let a repository look verified when
+// a key memvet does not understand would let a repository look verified when
 // the check its author wrote was never executed.
 func TestLoadRejects(t *testing.T) {
 	tests := []struct {

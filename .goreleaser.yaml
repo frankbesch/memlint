@@ -6,7 +6,7 @@
 # "v" so released binaries print the same shape as `go install` builds.
 version: 2
 
-project_name: memlint
+project_name: memvet
 
 builds:
   - env:
@@ -20,7 +20,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/frankbesch/memlint/internal/cli.version={{ .Tag }}
+      - -s -w -X github.com/frankbesch/memvet/internal/cli.version={{ .Tag }}
 
 archives:
   - files:
@@ -47,7 +47,7 @@ homebrew_casks:
       owner: frankbesch
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/frankbesch/memlint
+    homepage: https://github.com/frankbesch/memvet
     description: Invariant checker for file-based agent memory
     # The binaries are not notarized, so strip the quarantine bit Gatekeeper
     # would otherwise use to block the first run.
@@ -55,11 +55,11 @@ homebrew_casks:
       post:
         install: |
           if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/memlint"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/memvet"]
           end
 
 release:
   footer: |
     ---
-    Install with `go install github.com/frankbesch/memlint@{{ .Tag }}`, or
+    Install with `go install github.com/frankbesch/memvet@{{ .Tag }}`, or
     download a binary above and verify it against `checksums.txt`.

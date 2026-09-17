@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/lint"
+	"github.com/frankbesch/memvet/internal/lint"
 )
 
 func render(t *testing.T, res lint.Result, color bool) string {
@@ -18,7 +18,7 @@ func render(t *testing.T, res lint.Result, color bool) string {
 
 func TestTextCleanRun(t *testing.T) {
 	got := render(t, lint.Result{RulesRun: 3, FilesChecked: 12}, false)
-	if got != "memlint: clean (3 rules, 12 files checked)\n" {
+	if got != "memvet: clean (3 rules, 12 files checked)\n" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -53,7 +53,7 @@ func TestTextFinding(t *testing.T) {
 		"mirrored files differ at byte 14",
 		"    counterpart: docs/CLAUDE.md",
 		"    CLAUDE.md is 20 bytes",
-		"memlint: 1 red, 0 yellow",
+		"memvet: 1 red, 0 yellow",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("output missing %q:\n%s", want, got)
@@ -139,7 +139,7 @@ func TestTextInfoFindingKeepsCleanSummary(t *testing.T) {
 		}
 	}
 	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
-	if last := lines[len(lines)-1]; last != "memlint: clean (1 rule, 2 files checked)" {
+	if last := lines[len(lines)-1]; last != "memvet: clean (1 rule, 2 files checked)" {
 		t.Errorf("summary must stay the clean line, got %q", last)
 	}
 	if strings.Contains(got, "counterpart:") {
@@ -158,7 +158,7 @@ func TestTextInfoDoesNotChangeRedSummary(t *testing.T) {
 		{Rule: "append_only", Code: "append_only/rotated", Severity: lint.SeverityInfo, Path: "b.md", Message: "rotated"},
 	}}
 	got := render(t, res, false)
-	if !strings.HasSuffix(got, "memlint: 1 red, 0 yellow\n") {
+	if !strings.HasSuffix(got, "memvet: 1 red, 0 yellow\n") {
 		t.Errorf("summary shape must not change, got:\n%s", got)
 	}
 }

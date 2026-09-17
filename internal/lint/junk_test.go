@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 func runJunk(root string, globs ...string) Result {
@@ -63,7 +63,7 @@ func TestJunk(t *testing.T) {
 	})
 
 	t.Run("the config file itself is just a file", func(t *testing.T) {
-		root := writeTree(t, map[string]string{".memlint.toml": "[junk]\n"})
+		root := writeTree(t, map[string]string{".memvet.toml": "[junk]\n"})
 		wantCounts(t, runJunk(root, "*.tmp"), 0, 0)
 	})
 }

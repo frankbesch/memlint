@@ -11,22 +11,22 @@ import (
 	"testing"
 )
 
-// binPath is a memlint binary built once for the whole package. The CLI
+// binPath is a memvet binary built once for the whole package. The CLI
 // contract is about exit codes and stream routing, which only a real process
 // can demonstrate.
 var binPath string
 
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "memlint-cli-test")
+	dir, err := os.MkdirTemp("", "memvet-cli-test")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "creating temp dir:", err)
 		os.Exit(1)
 	}
-	binPath = filepath.Join(dir, "memlint")
+	binPath = filepath.Join(dir, "memvet")
 
-	build := exec.Command("go", "build", "-o", binPath, "github.com/frankbesch/memlint")
+	build := exec.Command("go", "build", "-o", binPath, "github.com/frankbesch/memvet")
 	if out, err := build.CombinedOutput(); err != nil {
-		fmt.Fprintf(os.Stderr, "building memlint: %v\n%s", err, out)
+		fmt.Fprintf(os.Stderr, "building memvet: %v\n%s", err, out)
 		os.RemoveAll(dir)
 		os.Exit(1)
 	}
@@ -54,7 +54,7 @@ func run(t *testing.T, env []string, args ...string) result {
 	if err := cmd.Run(); err != nil {
 		exitErr, ok := err.(*exec.ExitError)
 		if !ok {
-			t.Fatalf("running memlint %v: %v", args, err)
+			t.Fatalf("running memvet %v: %v", args, err)
 		}
 		code = exitErr.ExitCode()
 	}
@@ -93,7 +93,7 @@ func TestExitCodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := run(t, nil, tt.args...)
 			if got.code != tt.want {
-				t.Errorf("memlint %v exited %d, want %d\nstdout:\n%s\nstderr:\n%s",
+				t.Errorf("memvet %v exited %d, want %d\nstdout:\n%s\nstderr:\n%s",
 					tt.args, got.code, tt.want, got.stdout, got.stderr)
 			}
 		})
@@ -112,10 +112,10 @@ func TestVersionFlag(t *testing.T) {
 	// pseudo-version here, a module version under `go install`, "dev" when no
 	// build info survives. The contract is the shape, not the value.
 	lines := strings.Split(strings.TrimRight(got.stdout, "\n"), "\n")
-	if len(lines) != 1 || !strings.HasPrefix(lines[0], "memlint ") {
-		t.Errorf("want one line of the form \"memlint <version>\", got: %q", got.stdout)
+	if len(lines) != 1 || !strings.HasPrefix(lines[0], "memvet ") {
+		t.Errorf("want one line of the form \"memvet <version>\", got: %q", got.stdout)
 	}
-	if lines[0] == "memlint " {
+	if lines[0] == "memvet " {
 		t.Errorf("version must not be empty, got: %q", lines[0])
 	}
 }
@@ -124,10 +124,10 @@ func TestVersionFlag(t *testing.T) {
 // symbol name that .goreleaser.yaml points at: renaming cli.version breaks
 // this test before it silently breaks release builds.
 func TestVersionInjection(t *testing.T) {
-	injected := filepath.Join(t.TempDir(), "memlint")
+	injected := filepath.Join(t.TempDir(), "memvet")
 	build := exec.Command("go", "build",
-		"-ldflags", "-X github.com/frankbesch/memlint/internal/cli.version=v9.9.9-test",
-		"-o", injected, "github.com/frankbesch/memlint")
+		"-ldflags", "-X github.com/frankbesch/memvet/internal/cli.version=v9.9.9-test",
+		"-o", injected, "github.com/frankbesch/memvet")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building with -ldflags: %v\n%s", err, out)
 	}
@@ -135,8 +135,8 @@ func TestVersionInjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("running --version: %v", err)
 	}
-	if got := strings.TrimRight(string(out), "\n"); got != "memlint v9.9.9-test" {
-		t.Errorf("got %q, want %q", got, "memlint v9.9.9-test")
+	if got := strings.TrimRight(string(out), "\n"); got != "memvet v9.9.9-test" {
+		t.Errorf("got %q, want %q", got, "memvet v9.9.9-test")
 	}
 }
 
@@ -157,7 +157,7 @@ func TestCleanRunIsOneGreenLine(t *testing.T) {
 	if len(lines) != 1 {
 		t.Errorf("a clean run must print exactly one line, got %d:\n%s", len(lines), got.stdout)
 	}
-	if !strings.HasPrefix(lines[0], "memlint: clean") {
+	if !strings.HasPrefix(lines[0], "memvet: clean") {
 		t.Errorf("got %q", lines[0])
 	}
 }
@@ -166,7 +166,7 @@ func TestCleanRunIsOneGreenLine(t *testing.T) {
 // anything was verified.
 func TestNoRulesEnabledSaysSo(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".memlint.toml"), []byte("# nothing\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".memvet.toml"), []byte("# nothing\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	got := run(t, nil, "check", dir)
@@ -255,7 +255,7 @@ func TestGitHubFormat(t *testing.T) {
 	if got.code != 1 {
 		t.Fatalf("exited %d, want 1\n%s", got.code, got.stderr)
 	}
-	if !strings.Contains(got.stdout, "::error file=memory/index.md,line=7,title=memlint pointers/dead-ref::") {
+	if !strings.Contains(got.stdout, "::error file=memory/index.md,line=7,title=memvet pointers/dead-ref::") {
 		t.Errorf("missing RED annotation:\n%s", got.stdout)
 	}
 	if !strings.Contains(got.stdout, "::warning file=") {
@@ -264,7 +264,7 @@ func TestGitHubFormat(t *testing.T) {
 	if strings.Contains(got.stdout, "\033") {
 		t.Error("github output must never contain ANSI escapes")
 	}
-	if !strings.Contains(got.stdout, "memlint: 10 red, 4 yellow") {
+	if !strings.Contains(got.stdout, "memvet: 10 red, 4 yellow") {
 		t.Errorf("missing summary line:\n%s", got.stdout)
 	}
 }
@@ -309,7 +309,7 @@ func TestColorIsSuppressed(t *testing.T) {
 
 func TestHelpGoesToStdout(t *testing.T) {
 	got := run(t, nil, "-h")
-	if !strings.Contains(got.stdout, "memlint <command>") {
+	if !strings.Contains(got.stdout, "memvet <command>") {
 		t.Errorf("help belongs on stdout, got stdout=%q stderr=%q", got.stdout, got.stderr)
 	}
 }
@@ -353,7 +353,7 @@ func TestBaseFlag(t *testing.T) {
 	}
 	// Two lines, and the rewrite alters the first: extending the LAST line is
 	// admitted by the trailing-newline tolerance and would not be a violation.
-	writeF(".memlint.toml", "[append_only]\nfiles = [\"decisions.md\"]\n")
+	writeF(".memvet.toml", "[append_only]\nfiles = [\"decisions.md\"]\n")
 	writeF("decisions.md", "- D-001\n- D-002\n")
 	gitCLI(t, dir, "init", "-q", "-b", "main")
 	gitCLI(t, dir, "add", "-A")
@@ -390,7 +390,7 @@ func TestBaseFlag(t *testing.T) {
 // silently would let CI believe a gate exists that does not.
 func TestBaseFlagRequiresAppendOnly(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, ".memlint.toml"),
+	if err := os.WriteFile(filepath.Join(dir, ".memvet.toml"),
 		[]byte("[junk]\nglobs = [\".DS_Store\"]\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +451,7 @@ func TestInitRefusesOverwrite(t *testing.T) {
 	if got := run(t, nil, "init", dir); got.code != 0 {
 		t.Fatalf("first init exited %d\n%s", got.code, got.stderr)
 	}
-	before, err := os.ReadFile(filepath.Join(dir, ".memlint.toml"))
+	before, err := os.ReadFile(filepath.Join(dir, ".memvet.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +463,7 @@ func TestInitRefusesOverwrite(t *testing.T) {
 	if !strings.Contains(got.stderr, "refuses to overwrite") {
 		t.Errorf("stderr should state the refusal, got: %q", got.stderr)
 	}
-	after, err := os.ReadFile(filepath.Join(dir, ".memlint.toml"))
+	after, err := os.ReadFile(filepath.Join(dir, ".memvet.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +514,7 @@ func TestDefaultPathIsCurrentDirectory(t *testing.T) {
 // widen back to a full run.
 func TestChangedFlagNeedsGit(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, ".memlint.toml"), []byte("[junk]\nglobs = [\"*.tmp\"]\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, ".memvet.toml"), []byte("[junk]\nglobs = [\"*.tmp\"]\n"), 0o644)
 	got := run(t, nil, "check", "--changed", dir)
 	if got.code != 2 || !strings.Contains(got.stderr, "--changed") {
 		t.Errorf("exit %d, stderr %q", got.code, got.stderr)
@@ -548,7 +548,7 @@ func TestFingerprintCommandAndExpectTree(t *testing.T) {
 	if strings.Count(moved.stdout, "RED") != 1 || !strings.Contains(moved.stdout, "[tree/moved]") {
 		t.Errorf("want exactly one RED tree/moved, got:\n%s", moved.stdout)
 	}
-	if !strings.Contains(moved.stdout, "memlint: 1 red, 0 yellow (tree "+tree[:12]+")") {
+	if !strings.Contains(moved.stdout, "memvet: 1 red, 0 yellow (tree "+tree[:12]+")") {
 		t.Errorf("red summary lacks the tree receipt:\n%s", moved.stdout)
 	}
 

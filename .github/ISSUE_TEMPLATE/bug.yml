@@ -1,19 +1,19 @@
 name: Bug report
-description: memlint reported something wrong, missed something it should have caught, or crashed.
+description: memvet reported something wrong, missed something it should have caught, or crashed.
 labels: [bug]
 body:
   - type: input
     id: version
     attributes:
-      label: memlint version
-      description: Output of `memlint --version`.
-      placeholder: memlint v0.9.1
+      label: memvet version
+      description: Output of `memvet --version`.
+      placeholder: memvet v0.9.1
     validations:
       required: true
   - type: textarea
     id: config
     attributes:
-      label: .memlint.toml
+      label: .memvet.toml
       description: The config in use, trimmed to the rule involved.
       render: toml
     validations:
@@ -22,7 +22,7 @@ body:
     id: repro
     attributes:
       label: What happened
-      description: The command you ran, its output, and what you expected instead. `memlint check --no-color --format json` output is ideal.
+      description: The command you ran, its output, and what you expected instead. `memvet check --no-color --format json` output is ideal.
       render: text
     validations:
       required: true

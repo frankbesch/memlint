@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 func runStamps(root string, cfg *config.Stamps) Result {

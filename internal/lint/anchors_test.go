@@ -3,7 +3,7 @@ package lint
 import (
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 func TestHeadingSlug(t *testing.T) {

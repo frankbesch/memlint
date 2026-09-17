@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 func fixture(t *testing.T, name string) string {

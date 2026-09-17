@@ -1,6 +1,6 @@
 # fixture-broken
 
-A deliberately broken agent-memory repository. `memlint check` must report
+A deliberately broken agent-memory repository. `memvet check` must report
 exactly **9 RED** and **4 YELLOW** findings here, and exit 1.
 
 | # | Severity | Rule | Planted defect |

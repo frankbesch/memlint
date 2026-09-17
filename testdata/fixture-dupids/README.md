@@ -1,6 +1,6 @@
 # fixture-dupids
 
-A decisions log with two id collisions. `memlint check` must report exactly
+A decisions log with two id collisions. `memvet check` must report exactly
 **2 RED** `ids/duplicate` findings here and exit 1.
 
 | # | Severity | Rule | Planted defect |

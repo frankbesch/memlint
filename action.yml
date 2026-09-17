@@ -1,8 +1,8 @@
-# memlint as a GitHub Action. Downloads a released binary for the runner,
+# memvet as a GitHub Action. Downloads a released binary for the runner,
 # verifies it against the checksums goreleaser publishes, and runs check with
 # annotations on. The binary is the same one `brew` and `go install` give you;
 # this file only fetches it.
-name: memlint
+name: memvet
 description: Integrity checks for file-based AI agent state (memory, instructions, decisions, contracts)
 author: Frank Besch
 branding:
@@ -11,7 +11,7 @@ branding:
 
 inputs:
   path:
-    description: Directory to check (where .memlint.toml lives, or where one would be inferred)
+    description: Directory to check (where .memvet.toml lives, or where one would be inferred)
     required: false
     default: "."
   strict:
@@ -23,14 +23,14 @@ inputs:
     required: false
     default: ""
   version:
-    description: Release to run, e.g. v0.11.0, or "latest"
+    description: Release to run, e.g. v0.12.0, or "latest"
     required: false
     default: "latest"
 
 runs:
   using: composite
   steps:
-    - name: Download memlint
+    - name: Download memvet
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -40,27 +40,27 @@ runs:
         case "$(uname -s)" in
           Linux)  os=linux ;;
           Darwin) os=darwin ;;
-          *) echo "memlint action: unsupported OS $(uname -s)"; exit 2 ;;
+          *) echo "memvet action: unsupported OS $(uname -s)"; exit 2 ;;
         esac
         case "$(uname -m)" in
           x86_64)        arch=amd64 ;;
           aarch64|arm64) arch=arm64 ;;
-          *) echo "memlint action: unsupported arch $(uname -m)"; exit 2 ;;
+          *) echo "memvet action: unsupported arch $(uname -m)"; exit 2 ;;
         esac
         if [ "$VERSION" = "latest" ]; then
-          VERSION=$(gh release view --repo frankbesch/memlint --json tagName --jq .tagName)
+          VERSION=$(gh release view --repo frankbesch/memvet --json tagName --jq .tagName)
         fi
-        # goreleaser's default archive name: memlint_0.11.0_linux_amd64.tar.gz
-        archive="memlint_${VERSION#v}_${os}_${arch}.tar.gz"
-        dir="$RUNNER_TEMP/memlint"
+        # goreleaser's default archive name: memvet_0.12.0_linux_amd64.tar.gz
+        archive="memvet_${VERSION#v}_${os}_${arch}.tar.gz"
+        dir="$RUNNER_TEMP/memvet"
         mkdir -p "$dir"
-        gh release download "$VERSION" --repo frankbesch/memlint --pattern "$archive" --pattern checksums.txt --dir "$dir" --clobber
+        gh release download "$VERSION" --repo frankbesch/memvet --pattern "$archive" --pattern checksums.txt --dir "$dir" --clobber
         (cd "$dir" && grep " $archive\$" checksums.txt | sha256sum -c -)
-        tar -xzf "$dir/$archive" -C "$dir" memlint
+        tar -xzf "$dir/$archive" -C "$dir" memvet
         echo "$dir" >> "$GITHUB_PATH"
-        "$dir/memlint" --version
+        "$dir/memvet" --version
 
-    - name: memlint check
+    - name: memvet check
       shell: bash
       env:
         STRICT: ${{ inputs.strict }}
@@ -71,4 +71,4 @@ runs:
         args=()
         [ "$STRICT" = "true" ] && args+=(--strict)
         [ -n "$BASE" ] && args+=(--base "$BASE")
-        memlint check --format github ${args[@]+"${args[@]}"} "$TARGET"
+        memvet check --format github ${args[@]+"${args[@]}"} "$TARGET"

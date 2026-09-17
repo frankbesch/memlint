@@ -1,6 +1,6 @@
 # A repository whose append-only log was just rotated: the first three
 # entries moved verbatim into an archived volume, and the live log's header
-# now points at that volume. memlint must report this as INFO
+# now points at that volume. memvet must report this as INFO
 # append_only/rotated, not RED append_only/rewritten.
 #
 # This fixture is not runnable as a static tree: [append_only] needs a git

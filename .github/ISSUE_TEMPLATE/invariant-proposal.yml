@@ -1,12 +1,12 @@
 name: Invariant proposal
-description: Propose a new rule. memlint only adds a rule for a silent, consequential failure that nothing else catches.
+description: Propose a new rule. memvet only adds a rule for a silent, consequential failure that nothing else catches.
 labels: [invariant]
 body:
   - type: textarea
     id: invariant
     attributes:
       label: What must remain true?
-      description: State the property as a sentence memlint could check mechanically.
+      description: State the property as a sentence memvet could check mechanically.
     validations:
       required: true
   - type: textarea
@@ -26,7 +26,7 @@ body:
   - type: textarea
     id: layer
     attributes:
-      label: Why is memlint the right layer?
+      label: Why is memvet the right layer?
       description: Why a general-purpose tool (markdown linter, pre-commit, secret scanner, tests) would not own this better.
     validations:
       required: true

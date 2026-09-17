@@ -1,13 +1,13 @@
-// Command memlint checks mechanical invariants in file-based agent memory
+// Command memvet checks mechanical invariants in file-based agent memory
 // repositories. check is read-only: it never modifies, creates, or repairs
 // files. The one exception in the whole tool is init, which creates a starter
-// .memlint.toml and refuses to overwrite an existing one.
+// .memvet.toml and refuses to overwrite an existing one.
 package main
 
 import (
 	"os"
 
-	"github.com/frankbesch/memlint/internal/cli"
+	"github.com/frankbesch/memvet/internal/cli"
 )
 
 func main() {

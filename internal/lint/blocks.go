@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 const ruleBlocks = "blocks"
@@ -17,7 +17,7 @@ const ruleBlocks = "blocks"
 // agent actually stayed inside its block is an authorship question the working
 // tree cannot answer; what it can answer is whether the block an agent will
 // rewrite on its next run is still unambiguous. A half-deleted marker means the
-// next run rewrites the wrong span, which is exactly the silent drift memlint
+// next run rewrites the wrong span, which is exactly the silent drift memvet
 // exists to catch.
 //
 // With mirror = true the content between the markers must also be identical

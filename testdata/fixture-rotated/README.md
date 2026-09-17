@@ -6,7 +6,7 @@ D-001 – D-003 were cut out and moved verbatim into
 `memory/archive/decisions-vol1.md`, with the live log's header rewritten to
 point at the volume.
 
-Against that baseline memlint must report exactly **one INFO** finding —
+Against that baseline memvet must report exactly **one INFO** finding —
 `append_only/rotated`, three lines moved verbatim — and **no RED or YELLOW**:
 the header change is covered by `header_lines = 4`, and the archive's missing
 git baseline is established by the rotation itself.

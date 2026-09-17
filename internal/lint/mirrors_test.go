@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 func runMirrors(root string, pairs ...[]string) Result {
@@ -123,7 +123,7 @@ func TestMirrorsDirectories(t *testing.T) {
 }
 
 // A symlinked directory must not be walked into: following it would let a link
-// widen a check to files outside the tree memlint was pointed at.
+// widen a check to files outside the tree memvet was pointed at.
 func TestMirrorsDoesNotFollowSymlinkedDirectories(t *testing.T) {
 	root := writeTree(t, map[string]string{
 		"left/a.md":    "a\n",

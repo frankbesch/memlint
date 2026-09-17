@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/frankbesch/memlint/internal/lint"
+	"github.com/frankbesch/memvet/internal/lint"
 )
 
 // SchemaVersion identifies the JSON output contract. Bump it on any

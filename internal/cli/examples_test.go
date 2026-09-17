@@ -12,7 +12,7 @@ import (
 // The directories under examples/ are the recipes in docs/recipes.md and the
 // output quoted in README.md. They are documentation that runs: each one is
 // held to the result its recipe states, so a recipe cannot drift from what
-// memlint actually does.
+// memvet actually does.
 
 func example(name string) string {
 	return filepath.Join("..", "..", "examples", name)
@@ -24,9 +24,9 @@ func TestExamplesMatchTheirRecipes(t *testing.T) {
 		code    int
 		summary string // prefix of the last stdout line
 	}{
-		{"minimal", 0, "memlint: clean (3 rules, 4 files checked"},
-		{"shared-instructions", 0, "memlint: clean (2 rules, 2 files checked"},
-		{"broken", 1, "memlint: 1 red, 1 yellow"},
+		{"minimal", 0, "memvet: clean (3 rules, 4 files checked"},
+		{"shared-instructions", 0, "memvet: clean (2 rules, 2 files checked"},
+		{"broken", 1, "memvet: 1 red, 1 yellow"},
 	}
 	for _, c := range cases {
 		got := run(t, nil, "check", "--no-color", example(c.name))
@@ -48,7 +48,7 @@ func TestDecisionLogExampleIsCleanOnceCommitted(t *testing.T) {
 	git(t, dir, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "log")
 
 	got := run(t, nil, "check", "--no-color", dir)
-	if got.code != 0 || !strings.HasPrefix(lastLine(got.stdout), "memlint: clean (2 rules, 1 file checked") {
+	if got.code != 0 || !strings.HasPrefix(lastLine(got.stdout), "memvet: clean (2 rules, 1 file checked") {
 		t.Fatalf("committed decision-log: exit %d\nstdout:\n%s\nstderr:\n%s", got.code, got.stdout, got.stderr)
 	}
 
@@ -68,7 +68,7 @@ func TestDecisionLogExampleIsCleanOnceCommitted(t *testing.T) {
 	}
 }
 
-// README.md quotes the output of `memlint check examples/broken`. The quote
+// README.md quotes the output of `memvet check examples/broken`. The quote
 // must be the real thing, byte for byte, or the landing page lies.
 func TestReadmeOutputMatchesExample(t *testing.T) {
 	readme, err := os.ReadFile(filepath.Join("..", "..", "README.md"))
@@ -107,7 +107,7 @@ func TestFirstRunJourney(t *testing.T) {
 	if got := run(t, nil, "init", dir); got.code != 0 {
 		t.Fatalf("init: exit %d\n%s%s", got.code, got.stdout, got.stderr)
 	}
-	if got := run(t, nil, "check", "--no-color", dir); got.code != 0 || !strings.HasPrefix(got.stdout, "memlint: clean") {
+	if got := run(t, nil, "check", "--no-color", dir); got.code != 0 || !strings.HasPrefix(got.stdout, "memvet: clean") {
 		t.Fatalf("first check should be clean: exit %d\n%s%s", got.code, got.stdout, got.stderr)
 	}
 	if err := os.Remove(filepath.Join(dir, "memory", "preferences.md")); err != nil {

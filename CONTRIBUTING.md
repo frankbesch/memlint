@@ -1,15 +1,15 @@
 # Contributing
 
-memlint is small on purpose. Two things keep it that way.
+memvet is small on purpose. Two things keep it that way.
 
 **`check` stays read-only.** No `--fix`, no autofix path, no write outside
-`memlint init`. A pull request that adds one will be declined on that ground
+`memvet init`. A pull request that adds one will be declined on that ground
 alone.
 
 **A new rule needs a silent, consequential failure that nothing else catches.**
 Before proposing an invariant, answer four questions in the issue: what must
 remain true, what silent failure occurs if it does not, why no existing rule
-detects it, and why memlint is the right layer rather than a general-purpose
+detects it, and why memvet is the right layer rather than a general-purpose
 tool.
 
 ## How a change lands
@@ -30,10 +30,10 @@ tool.
 ```bash
 go test ./...
 gofmt -l . && go vet ./...
-go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 10 red, 4 yellow, exit 1
-./memlint check --no-color testdata/fixture-clean    # clean, exit 0
-./memlint check --strict .                           # self-check
+go build -o ./memvet .
+./memvet check --no-color testdata/fixture-broken   # 10 red, 4 yellow, exit 1
+./memvet check --no-color testdata/fixture-clean    # clean, exit 0
+./memvet check --strict .                           # self-check
 ```
 
 CI runs the same steps plus every directory under [examples/](examples).

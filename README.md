@@ -1,17 +1,17 @@
-# memlint
+# memvet
 
-[![CI](https://github.com/frankbesch/memlint/actions/workflows/ci.yml/badge.svg)](https://github.com/frankbesch/memlint/actions/workflows/ci.yml)
+[![CI](https://github.com/frankbesch/memvet/actions/workflows/ci.yml/badge.svg)](https://github.com/frankbesch/memvet/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Integrity checks for file-based AI agent state: memory, instructions,
 decisions, and contracts.
 
-Think `fsck`, not ESLint. memlint verifies properties you declare must stay
+Think `go vet` or `fsck`, not ESLint. memvet verifies properties you declare must stay
 true across a repo of markdown that an agent runtime reads as memory. It does
 not judge prose, and it is not a memory store or retrieval system.
 
 `check` is **read-only**. It never edits, creates, moves, or deletes a file,
-and there is no `--fix`. The one write in the whole tool is `memlint init`,
+and there is no `--fix`. The one write in the whole tool is `memvet init`,
 which creates a starter config once and refuses to overwrite it.
 
 ## The failure mode
@@ -24,7 +24,7 @@ folder of notes into context on every run. Those files drift silently:
 - `CLAUDE.md` and `AGENTS.md` are supposed to be identical and no longer are.
 
 Nothing fails. The agent just starts working from something that is no longer
-true. memlint turns each of those into a RED finding with a file, a line, and
+true. memvet turns each of those into a RED finding with a file, a line, and
 a stable code.
 
 ## 60-second example
@@ -42,14 +42,14 @@ watch = ["MEMORY.md", "memory/*.md"]
 budget = 400
 ```
 
-`memlint check examples/broken` prints:
+`memvet check examples/broken` prints:
 
 <!-- examples/broken output: kept identical to the real run by TestReadmeOutputMatchesExample -->
 ```text
 pointers  RED     MEMORY.md:6     dead reference: memory/preferences.md does not exist [pointers/dead-ref]
 tokens    YELLOW  memory/acme.md  794 estimated tokens exceeds budget of 400 [tokens/over-budget]
-docs: https://github.com/frankbesch/memlint/blob/main/docs/findings.md
-memlint: 1 red, 1 yellow (tree 22f124e8d9eb)
+docs: https://github.com/frankbesch/memvet/blob/main/docs/findings.md
+memvet: 1 red, 1 yellow (tree a5e8a264f658)
 ```
 
 RED means a declared invariant is broken and the run exits 1. YELLOW means
@@ -60,38 +60,38 @@ something needs attention but does not fail the run unless you pass
 ## Install
 
 ```bash
-brew install frankbesch/tap/memlint
+brew install frankbesch/tap/memvet
 ```
 
 ```bash
-go install github.com/frankbesch/memlint@latest
+go install github.com/frankbesch/memvet@latest
 ```
 
 Or try it once without installing anything, on the repo you are in:
 
 ```bash
-go run github.com/frankbesch/memlint@latest check .
+go run github.com/frankbesch/memvet@latest check .
 ```
 
-With no `.memlint.toml` yet, `check` runs what it can infer from the tree
+With no `.memvet.toml` yet, `check` runs what it can infer from the tree
 and says so in its first line.
 
 Or download a binary for macOS or Linux from the
-[releases page](https://github.com/frankbesch/memlint/releases) and verify it
-against `checksums.txt`. `memlint --version` tells you what you got.
+[releases page](https://github.com/frankbesch/memvet/releases) and verify it
+against `checksums.txt`. `memvet --version` tells you what you got.
 
 ## Quick start
 
 From the root of the repo your agent uses as memory:
 
 ```bash
-memlint init
-memlint check
+memvet init
+memvet check
 ```
 
-`init` inspects the repo, writes a `.memlint.toml` that enables only the
+`init` inspects the repo, writes a `.memvet.toml` that enables only the
 rules it found evidence for, and reports what it enabled, what it only
-suggests, and what it refused to guess. `memlint init --dry-run` shows the
+suggests, and what it refused to guess. `memvet init --dry-run` shows the
 config without writing it. Review it, then add rules from the table below as your repo accumulates invariants worth declaring. Ready-made configs
 for common layouts are in [docs/recipes.md](docs/recipes.md).
 
@@ -120,7 +120,7 @@ Ten rules, five ideas:
 | Freshness and capacity | `stamps`, `tokens` | stale or bloated context |
 | Hygiene tripwires | `junk`, `secrets` | things that should not be in the tree |
 
-A section's presence in `.memlint.toml` is what enables its rule. Full key
+A section's presence in `.memvet.toml` is what enables its rule. Full key
 reference: [docs/rules.md](docs/rules.md).
 
 ## In CI
@@ -132,14 +132,14 @@ runs `check --format github`:
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0
-- uses: frankbesch/memlint@v0.11.1
+- uses: frankbesch/memvet@v0.12.0
   with:
     strict: true
     base: ${{ github.event.pull_request.base.sha }}
 ```
 
 A complete pull-request workflow using `go install` instead is in
-[.github/examples/memlint.yml](.github/examples/memlint.yml). The core of it:
+[.github/examples/memvet.yml](.github/examples/memvet.yml). The core of it:
 
 ```yaml
 - uses: actions/checkout@v4
@@ -148,8 +148,8 @@ A complete pull-request workflow using `go install` instead is in
 - uses: actions/setup-go@v5
   with:
     go-version: stable
-- run: go install github.com/frankbesch/memlint@latest
-- run: memlint check --format github --strict --base "${{ github.event.pull_request.base.sha }}" .
+- run: go install github.com/frankbesch/memvet@latest
+- run: memvet check --format github --strict --base "${{ github.event.pull_request.base.sha }}" .
 ```
 
 `--format github` renders each finding as an inline annotation on the diff.
@@ -161,12 +161,12 @@ makes that base reachable.
 
 Every `check` summary ends with a fingerprint of the exact tree it judged.
 A later run can be held to it with `--expect-tree`, which turns a tree that
-changed in between into one RED finding. memlint stores nothing; the caller
+changed in between into one RED finding. memvet stores nothing; the caller
 keeps the receipt. Details in [docs/tree-receipts.md](docs/tree-receipts.md).
 
 ## Documentation
 
-- [Configuration](docs/configuration.md): the `.memlint.toml` format and what it rejects.
+- [Configuration](docs/configuration.md): the `.memvet.toml` format and what it rejects.
 - [Rules](docs/rules.md): every rule, its keys, what it proves and what it cannot.
 - [Recipes](docs/recipes.md): copy-and-paste configs for common memory layouts, each a runnable example.
 - [Command line](docs/cli.md): flags, exit codes, JSON and GitHub output.
@@ -175,7 +175,7 @@ keeps the receipt. Details in [docs/tree-receipts.md](docs/tree-receipts.md).
 - [Development](docs/development.md): tests, fixtures, releases, roadmap.
 - [SPEC.md](SPEC.md): the versioned build log, for design provenance.
 
-## What memlint does not do
+## What memvet does not do
 
 - Judge whether a memory is correct, useful, or well written.
 - Decide what an agent should remember.

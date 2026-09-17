@@ -1,4 +1,4 @@
-<!-- This is memlint's build log: the original build prompt followed by one
+<!-- This is memvet's build log (the tool was named memlint through v0.11.1): the original build prompt followed by one
 versioned addendum per shipped change, each with the gates that proved it.
 It exists for design provenance. The user manual is README.md; reference
 docs are under docs/. D-### references are the maintainer's decision log and
@@ -867,3 +867,46 @@ variable, so the step failed before memlint ran whenever neither `strict`
 nor `base` was set. Now `${args[@]+"${args[@]}"}`. Receipt: the two
 expansions run on /bin/bash 3.2.57 with an empty and a one-element array.
 Ships with the next tag; @v0.11.1 is unchanged.
+
+# --- v0.12.0: rename memlint to memvet (ruled 2026-09-17, D-### at wrap) ---
+
+Why: D-144 §6 fixed the positioning as declared invariants with no fix mode
+at the contract level, which is `go vet`'s posture, not a linter's. The
+"lint" suffix filed the tool in the category it was ruled out of, and the
+09-17 name check found "memlint" already taken on PyPI and GitHub by a
+stale-fact scanner (the generic memory hygiene D-144 §6 says this tool is
+not). memvet was clean on GitHub, PyPI, npm, crates.io, Homebrew, and Docker
+Hub on 2026-09-17. memfsck and agentfsck were the runners-up; memvet won on
+the `go vet` analogy (reports, never fixes) and on "agent" being the most
+crowded prefix in the space.
+
+Change (current and future surfaces only; history keeps the old name):
+1. Module path github.com/frankbesch/memvet; binary, command name, usage
+   text, summary line (`memvet: N red, M yellow`), and the docs URL base.
+2. Config file `.memvet.toml`. No fallback to `.memlint.toml`: there are no
+   external users, and a silent alias is a second name to maintain.
+3. goreleaser project_name and cask `memvet`; action.yml downloads
+   `memvet_<ver>_<os>_<arch>.tar.gz` from frankbesch/memvet; pre-commit
+   hook id `memvet`. Pinned snippets move to v0.12.0.
+4. GitHub repository renamed frankbesch/memlint -> frankbesch/memvet.
+   GitHub redirects git, `uses:`, and pre-commit URLs; `go install` of the
+   old module path stops working once go.mod declares the new one, by
+   design.
+5. Finding codes unchanged (rule 4): none carried the product name.
+6. Prior SPEC addenda, release notes, and the fixture decision lines
+   "adopt memlint" stay as written; they are history.
+
+Gates:
+G1 CHECK `go test ./...` EXPECT ok.
+G2 CHECK `gofmt -l .` empty; `go vet ./...` clean.
+G3 CHECK fixture-broken 10 red, 4 yellow, exit 1; fixture-clean clean,
+   exit 0; fixture-dupids 2 red; examples/* clean, examples/broken 1 red
+   1 yellow; every summary line starts `memvet:`.
+G4 CHECK `git grep -n memlint` limited to SPEC.md and the three fixture
+   decision lines.
+G5 CHECK `memvet check --strict ~/Documents/promptkits` clean after the
+   FBOS config is renamed `.memvet.toml`.
+G6 CHECK post-push CI green; tag v0.12.0; Release run green; the cask
+   `memvet` lands in frankbesch/homebrew-tap; `brew` and `go install`
+   paths both resolve.
+Receipt: filled at build.

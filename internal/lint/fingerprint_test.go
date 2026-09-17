@@ -50,7 +50,7 @@ func TestFingerprintIsContentBased(t *testing.T) {
 		t.Errorf("two runs differ: %s vs %s", a, b)
 	}
 	// The temp copy has no .git, so it takes the walk path; the fixture sits
-	// inside the memlint repository, so it takes the git path. Both must
+	// inside the memvet repository, so it takes the git path. Both must
 	// agree on the same set of files and bytes.
 	c, err := Fingerprint(copyTree(t, root))
 	if err != nil {

@@ -43,7 +43,7 @@ must still begin with what the base branch holds:
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0   # --base needs the base branch's history in the checkout
-- run: memlint check --format github --strict --base origin/main .
+- run: memvet check --format github --strict --base origin/main .
 ```
 
 `--base` refuses loudly rather than degrading: an unresolvable ref, a missing
@@ -66,8 +66,8 @@ the invariant could not be established, not that it was violated.
 entries move verbatim into an archived volume, and the live file keeps the
 rest under a header that now points at the volume. Bytewise that is a
 rewrite, and before v0.7 it was RED — so the rotation commit reset the
-baseline and memlint verified nothing about the move. Now, when a listed
-file no longer begins with its baseline, memlint isolates the **cut span**
+baseline and memvet verified nothing about the move. Now, when a listed
+file no longer begins with its baseline, memvet isolates the **cut span**
 (the baseline lines that are gone, header excluded) and looks for it, whole
 lines and verbatim, after the header of every *other* listed file that has
 no baseline of its own at the ref — untracked, or created after `--base`.
@@ -77,8 +77,8 @@ no-baseline YELLOW is withdrawn, because the moved span *is* its baseline:
 ```text
 append_only  INFO    memory/decisions.md:6  rotated → memory/archive/decisions-vol1.md (3 lines moved verbatim) [append_only/rotated]
     baseline lines 6-8 left memory/decisions.md and appear unchanged in memory/archive/decisions-vol1.md
-docs: https://github.com/frankbesch/memlint/blob/main/docs/findings.md
-memlint: clean (1 rule, 2 files checked)
+docs: https://github.com/frankbesch/memvet/blob/main/docs/findings.md
+memvet: clean (1 rule, 2 files checked)
 ```
 
 (That is [testdata/fixture-rotated](../testdata/fixture-rotated) with its
@@ -203,8 +203,8 @@ inline code spans, markdown link and image destinations, and bare
 whitespace-delimited tokens. A candidate must contain `/`.
 
 A reference is **checked only if its first path segment appears in `roots`**.
-That is the whole gate: `memory/notes.md` with `roots = ["memory"]` is memlint's
-responsibility, while `reading/daily` is not, because you never told memlint
+That is the whole gate: `memory/notes.md` with `roots = ["memory"]` is memvet's
+responsibility, while `reading/daily` is not, because you never told memvet
 that `reading` exists.
 
 **The root `"."`** (v0.11) is different in kind: it turns on a second pass
@@ -214,7 +214,7 @@ exists for flat memory folders — Claude Code's auto-memory is `MEMORY.md`
 beside its notes, indexed as `[Title](note.md)` — where no first-segment
 root could ever match. Inline code spans and bare tokens are excluded from
 that pass on purpose: `a.md` in prose is a word, not a claim. `"."` may sit
-beside named roots; each pass is gated by its own rule. `memlint init`
+beside named roots; each pass is gated by its own rule. `memvet init`
 infers it when `MEMORY.md` sits at the root and no markdown folder exists
 (since v0.11.1 the note count is not a condition; v0.11.0 required two or
 more sibling notes, which left a young or emptied folder unchecked).
@@ -261,7 +261,7 @@ contents. A matching directory is reported once and then pruned.
 
 Estimates one token per four characters, rounded up, counting **runes** rather
 than bytes so multibyte content is not overcounted several times over. This is
-an estimate and reports itself as one; memlint does not run a tokenizer.
+an estimate and reports itself as one; memvet does not run a tokenizer.
 
 An optional `limit` adds a hard tier above the budget: past `budget` is
 YELLOW (`tokens/over-budget`), past `limit` is RED (`tokens/over-limit`).

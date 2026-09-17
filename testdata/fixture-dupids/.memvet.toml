@@ -1,4 +1,4 @@
-# A decisions log with two id collisions. memlint must report exactly 2 RED
+# A decisions log with two id collisions. memvet must report exactly 2 RED
 # ids/duplicate findings here and exit 1: D-102 written twice in the live
 # log (two sessions, same minute), and D-050 present in both the archived
 # volume and the live log.

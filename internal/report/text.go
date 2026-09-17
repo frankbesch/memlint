@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/lint"
+	"github.com/frankbesch/memvet/internal/lint"
 )
 
 const (
@@ -79,7 +79,7 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 		return err
 	}
 	red, yellow := res.Red(), res.Yellow()
-	summary := fmt.Sprintf("memlint: %d red, %d yellow", red, yellow)
+	summary := fmt.Sprintf("memvet: %d red, %d yellow", red, yellow)
 	if t := treeSuffix(res, ""); t != "" {
 		summary += " (" + t + ")"
 	}
@@ -95,9 +95,9 @@ func Text(w io.Writer, res lint.Result, color bool) error {
 // must never read as a verified repository, so it says so.
 func cleanLine(res lint.Result) string {
 	if res.RulesRun == 0 {
-		return "memlint: clean (no rules enabled" + treeSuffix(res, ", ") + ")"
+		return "memvet: clean (no rules enabled" + treeSuffix(res, ", ") + ")"
 	}
-	return fmt.Sprintf("memlint: clean (%s, %s checked%s)",
+	return fmt.Sprintf("memvet: clean (%s, %s checked%s)",
 		plural(res.RulesRun, "rule"), plural(res.FilesChecked, "file"), treeSuffix(res, ", "))
 }
 

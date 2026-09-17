@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 // runAppendOnly evaluates only the append_only rule against root.
@@ -36,9 +36,9 @@ func git(t *testing.T, dir string, args ...string) {
 	cmd.Env = append(os.Environ(),
 		"GIT_CONFIG_GLOBAL=/dev/null",
 		"GIT_CONFIG_SYSTEM=/dev/null",
-		"GIT_AUTHOR_NAME=memlint test",
+		"GIT_AUTHOR_NAME=memvet test",
 		"GIT_AUTHOR_EMAIL=test@example.invalid",
-		"GIT_COMMITTER_NAME=memlint test",
+		"GIT_COMMITTER_NAME=memvet test",
 		"GIT_COMMITTER_EMAIL=test@example.invalid",
 	)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -56,7 +56,7 @@ func newRepo(t *testing.T, files map[string]string) string {
 	return root
 }
 
-const baseline = "# Decisions\n\n- D-001: adopt memlint\n"
+const baseline = "# Decisions\n\n- D-001: adopt memvet\n"
 
 func TestAppendOnlyAppendPasses(t *testing.T) {
 	requireGit(t)
@@ -78,7 +78,7 @@ func TestAppendOnlyRewriteFails(t *testing.T) {
 	if f.Line != 3 {
 		t.Errorf("got line %d, want 3 (the first divergent line)", f.Line)
 	}
-	if want := "was: - D-001: adopt memlint\nnow: - D-001: adopt something else"; f.Detail != want {
+	if want := "was: - D-001: adopt memvet\nnow: - D-001: adopt something else"; f.Detail != want {
 		t.Errorf("detail:\n%s\nwant:\n%s", f.Detail, want)
 	}
 }
@@ -163,7 +163,7 @@ func TestAppendOnlyYellowWhenNoBaseline(t *testing.T) {
 	})
 }
 
-// The memlint root is frequently a subdirectory of a larger repository. The
+// The memvet root is frequently a subdirectory of a larger repository. The
 // HEAD:./<path> form is what makes the baseline lookup resolve relative to the
 // target root rather than the repository root.
 func TestAppendOnlyRootInsideLargerRepo(t *testing.T) {
@@ -287,7 +287,7 @@ func infoFindings(res Result) []Finding {
 }
 
 const logHeader = "# Decisions\nRead memory/index.md first.\n\n"
-const logBody = "---\n- D-001: adopt memlint\n- D-002: ship v0.1\n- D-003: rotate at three\n- D-004: keep going\n"
+const logBody = "---\n- D-001: adopt memvet\n- D-002: ship v0.1\n- D-003: rotate at three\n- D-004: keep going\n"
 
 // header_lines marks the first N lines as the ONLY mutable span. A pointer
 // header that changes is not a rewrite; a body line that changes still is.
@@ -305,7 +305,7 @@ func TestAppendOnlyHeaderLinesExemptHeaderOnly(t *testing.T) {
 		{"header changed, header_lines absent", 0, "# Decisions\nRead memory/decisions-index.md first.\n\n" + logBody, 1},
 		{"header line added within the window", 3, "# Decisions\nVolumes: none yet\n\n" + logBody, 0},
 		{"body changed past the header", 3, logHeader + "---\n- D-001: adopt something else\n- D-002: ship v0.1\n- D-003: rotate at three\n- D-004: keep going\n", 1},
-		{"body truncated past the header", 3, logHeader + "---\n- D-001: adopt memlint\n", 1},
+		{"body truncated past the header", 3, logHeader + "---\n- D-001: adopt memvet\n", 1},
 		{"append after the header", 3, base + "- D-005: appended\n", 0},
 	}
 	for _, tc := range cases {
@@ -326,7 +326,7 @@ func TestAppendOnlyHeaderLinesExemptHeaderOnly(t *testing.T) {
 func TestAppendOnlyHeaderLinesReportsFullFileLine(t *testing.T) {
 	requireGit(t)
 	root := newRepo(t, map[string]string{"memory/decisions.md": logHeader + logBody})
-	writeFile(t, root, "memory/decisions.md", logHeader+"---\n- D-001: adopt memlint\n- D-002: ship v0.2\n- D-003: rotate at three\n- D-004: keep going\n")
+	writeFile(t, root, "memory/decisions.md", logHeader+"---\n- D-001: adopt memvet\n- D-002: ship v0.2\n- D-003: rotate at three\n- D-004: keep going\n")
 	res := runAppendOnlyCfg(root, &config.AppendOnly{Files: []string{"memory/decisions.md"}, HeaderLines: 3})
 	wantCounts(t, res, 1, 0)
 	if got := res.Findings[0].Line; got != 6 {
@@ -339,7 +339,7 @@ func TestAppendOnlyHeaderLinesReportsFullFileLine(t *testing.T) {
 // verbatim, after the header, in a declared append_only file that has no
 // baseline of its own. That is INFO append_only/rotated, and nothing else.
 const rotatedLive = "# Decisions\nVolume 1 lives in memory/archive/vol1.md.\n\n---\n- D-003: rotate at three\n- D-004: keep going\n- D-005: appended after rotation\n"
-const rotatedArchive = "# Decisions, volume 1\nArchived verbatim.\n\n---\n- D-001: adopt memlint\n- D-002: ship v0.1\n"
+const rotatedArchive = "# Decisions, volume 1\nArchived verbatim.\n\n---\n- D-001: adopt memvet\n- D-002: ship v0.1\n"
 
 func rotationCfg() *config.AppendOnly {
 	return &config.AppendOnly{Files: []string{"memory/decisions.md", "memory/archive/vol1.md"}, HeaderLines: 3}
@@ -400,9 +400,9 @@ func TestAppendOnlyRotationWithdraws(t *testing.T) {
 		archive string // "" = no archive written
 		files   []string
 	}{
-		{"moved line altered", "# Decisions, volume 1\nArchived verbatim.\n\n---\n- D-001: adopt memlint\n- D-002: ship v0.2\n", nil},
-		{"moved line missing", "# Decisions, volume 1\nArchived verbatim.\n\n---\n- D-001: adopt memlint\n", nil},
-		{"span only inside the destination header", "---\n- D-001: adopt memlint\n- D-002: ship v0.1\n", nil},
+		{"moved line altered", "# Decisions, volume 1\nArchived verbatim.\n\n---\n- D-001: adopt memvet\n- D-002: ship v0.2\n", nil},
+		{"moved line missing", "# Decisions, volume 1\nArchived verbatim.\n\n---\n- D-001: adopt memvet\n", nil},
+		{"span only inside the destination header", "---\n- D-001: adopt memvet\n- D-002: ship v0.1\n", nil},
 		{"destination not declared append_only", rotatedArchive, []string{"memory/decisions.md"}},
 		{"no destination at all", "", nil},
 	}
@@ -500,12 +500,12 @@ func TestAppendOnlyRotationSpanIsWholeLines(t *testing.T) {
 	requireGit(t)
 	root := newRepo(t, map[string]string{"memory/decisions.md": logHeader + logBody})
 	writeFile(t, root, "memory/decisions.md", rotatedLive)
-	writeFile(t, root, "memory/archive/vol1.md", "# vol 1\nnote\n\nlead-in\n---\n- D-001: adopt memlint\n- D-002: ship v0.1\ntrailer\n")
+	writeFile(t, root, "memory/archive/vol1.md", "# vol 1\nnote\n\nlead-in\n---\n- D-001: adopt memvet\n- D-002: ship v0.1\ntrailer\n")
 
 	res := runAppendOnlyCfg(root, rotationCfg())
 	wantRotated(t, res, "memory/decisions.md", "memory/archive/vol1.md", 2)
 
-	writeFile(t, root, "memory/archive/vol1.md", "# vol 1\nnote\n\n---\nX- D-001: adopt memlint\n- D-002: ship v0.1\n")
+	writeFile(t, root, "memory/archive/vol1.md", "# vol 1\nnote\n\n---\nX- D-001: adopt memvet\n- D-002: ship v0.1\n")
 	res = runAppendOnlyCfg(root, rotationCfg())
 	wantCounts(t, res, 1, 1)
 }
@@ -520,7 +520,7 @@ func TestAppendOnlyPerFileHeaders(t *testing.T) {
 	// A 5-line archive header: the shared N of 3 would leave "lead" and "---"
 	// inside the body and the span would still be found after them; the point
 	// of the override is that the body starts where THIS file's header ends.
-	writeFile(t, root, "memory/archive/vol1.md", "# vol 1\nnote\n\nlead\n---\n- D-001: adopt memlint\n- D-002: ship v0.1\n")
+	writeFile(t, root, "memory/archive/vol1.md", "# vol 1\nnote\n\nlead\n---\n- D-001: adopt memvet\n- D-002: ship v0.1\n")
 
 	cfg := rotationCfg()
 	cfg.Headers = map[string]int{"memory/archive/vol1.md": 5}

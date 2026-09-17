@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 const ruleHumanBrief = "human_brief"
@@ -157,7 +157,7 @@ const (
 
 // gitFileCommits lists every commit touching rel, newest first, with each
 // commit's author and any Co-Authored-By trailers. The pathspec is passed
-// relative to -C, which is what makes this work when the memlint root is a
+// relative to -C, which is what makes this work when the memvet root is a
 // subdirectory of a larger repository.
 //
 // follow adds --follow, which carries the walk across renames; git only

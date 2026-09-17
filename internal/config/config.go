@@ -1,4 +1,4 @@
-// Package config loads and validates .memlint.toml.
+// Package config loads and validates .memvet.toml.
 //
 // Section presence is the enable switch: a rule runs only if its section is
 // present in the file. A nil section pointer means "disabled", which is why
@@ -17,10 +17,10 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// FileName is the config file memlint looks for at the target root.
-const FileName = ".memlint.toml"
+// FileName is the config file memvet looks for at the target root.
+const FileName = ".memvet.toml"
 
-// Config mirrors the .memlint.toml schema. Every field is a pointer so that
+// Config mirrors the .memvet.toml schema. Every field is a pointer so that
 // an absent section is distinguishable from an empty one.
 type Config struct {
 	Mirrors    *Mirrors    `toml:"mirrors"`
@@ -229,7 +229,7 @@ func (c *Config) RuleCount() int {
 // error.
 var ErrNotFound = errors.New("config not found")
 
-// Load reads and validates <root>/.memlint.toml. Every error it returns is a
+// Load reads and validates <root>/.memvet.toml. Every error it returns is a
 // startup error: the caller must exit 2 without running any rule.
 func Load(root string) (*Config, error) {
 	path := filepath.Join(root, FileName)

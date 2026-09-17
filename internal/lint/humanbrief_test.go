@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 const agentBot = "openwiki[bot]"
@@ -134,7 +134,7 @@ func TestHumanBriefAgentCommitStaysVisibleAfterHumanCommits(t *testing.T) {
 	writeFile(t, root, "INSTRUCTIONS.md", "scope\nagent line\n")
 	commitAs(t, root, agentBot, "bot@example.invalid", "agent edit")
 	writeFile(t, root, "INSTRUCTIONS.md", "scope\nagent line\nhuman line\n")
-	commitAs(t, root, "memlint test", "test@example.invalid", "human edit on top")
+	commitAs(t, root, "memvet test", "test@example.invalid", "human edit on top")
 
 	res := runHumanBrief(root, []string{agentBot}, "INSTRUCTIONS.md")
 	wantCounts(t, res, 1, 0)
@@ -213,7 +213,7 @@ func TestHumanBriefYellowWhenNoHistory(t *testing.T) {
 }
 
 // Same subdirectory contract as [append_only]: the pathspec resolves relative
-// to the memlint root, not the enclosing repository's root.
+// to the memvet root, not the enclosing repository's root.
 func TestHumanBriefRootInsideLargerRepo(t *testing.T) {
 	requireGit(t)
 	repo := newRepo(t, map[string]string{

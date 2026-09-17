@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 // TestExtractRefs covers what counts as a repo-path-like reference at all,
@@ -75,7 +75,7 @@ func TestExtractRefs(t *testing.T) {
 	}
 }
 
-// TestCheckableRefs covers the roots gate: which extracted references memlint
+// TestCheckableRefs covers the roots gate: which extracted references memvet
 // is actually responsible for verifying. Each case sets roots so that the
 // reason for the outcome is unambiguous -- a reference must be skipped because
 // of the rule under test, not because its root happened to be unlisted.
@@ -329,7 +329,7 @@ func TestPointersSiblingRoot(t *testing.T) {
 		wantMessage(t, res, `dead anchor: here.md has no heading or anchor "nope"`)
 	})
 
-	t.Run("without the dot root a sibling link is not memlint's business", func(t *testing.T) {
+	t.Run("without the dot root a sibling link is not memvet's business", func(t *testing.T) {
 		root := writeTree(t, map[string]string{
 			"MEMORY.md": "- [gone](gone.md)\n",
 		})

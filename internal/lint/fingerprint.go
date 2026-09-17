@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// Fingerprint is the SHA-256 of the tree memlint would check under root: for
+// Fingerprint is the SHA-256 of the tree memvet would check under root: for
 // every visible regular file, sorted by root-relative slash path, the line
 // "path\0size\0sha256(content)\n". It is content-based on purpose — a clone,
 // a checkout, or a touch does not move it — so it serves as a receipt: the

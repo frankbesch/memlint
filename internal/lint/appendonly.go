@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 const ruleAppendOnly = "append_only"
@@ -279,7 +279,7 @@ func ValidateBaseRef(root, ref string) error {
 
 // gitShowRef reads <file> as committed at ref. The <ref>:./<path> form
 // resolves the path relative to -C, which is what makes this work when the
-// memlint root is a subdirectory of a larger repository.
+// memvet root is a subdirectory of a larger repository.
 func gitShowRef(root, ref, rel string) ([]byte, error) {
 	spec := ref + ":./" + filepath.ToSlash(rel)
 	cmd := exec.Command("git", "-C", root, "show", spec)

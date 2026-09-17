@@ -47,7 +47,7 @@ func TestBadArgumentsAreLoud(t *testing.T) {
 		if got.code != 2 || got.stdout != "" || !strings.Contains(got.stderr, c.want) {
 			t.Errorf("%v: exit %d, stdout %q, stderr %q; want exit 2 and %q on stderr", c.args, got.code, got.stdout, got.stderr, c.want)
 		}
-		if !strings.Contains(got.stderr, "memlint "+c.args[0]+" ") {
+		if !strings.Contains(got.stderr, "memvet "+c.args[0]+" ") {
 			t.Errorf("%v: stderr should carry the %s help, got:\n%s", c.args, c.args[0], got.stderr)
 		}
 	}
@@ -98,10 +98,10 @@ func TestPerCommandHelp(t *testing.T) {
 		t.Errorf("fingerprint --help: exit %d\n%s", got.code, got.stdout)
 	}
 	if a, b := run(t, nil, "help", "check").stdout, run(t, nil, "check", "-h").stdout; a == "" || a != b {
-		t.Error("memlint help check must equal memlint check -h")
+		t.Error("memvet help check must equal memvet check -h")
 	}
 	got := run(t, nil, "check", "--bogus")
-	if !strings.Contains(got.stderr, "memlint check [flags]") || strings.Contains(got.stderr, "memlint init [flags]") {
+	if !strings.Contains(got.stderr, "memvet check [flags]") || strings.Contains(got.stderr, "memvet init [flags]") {
 		t.Errorf("check usage error should show check's help only:\n%s", got.stderr)
 	}
 }
@@ -155,7 +155,7 @@ func TestInitReportsTiers(t *testing.T) {
 		}
 	}
 
-	cfg, err := os.ReadFile(filepath.Join(dir, ".memlint.toml"))
+	cfg, err := os.ReadFile(filepath.Join(dir, ".memvet.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,8 +202,8 @@ func TestInitDryRun(t *testing.T) {
 	if dry.code != 0 {
 		t.Fatalf("dry-run: exit %d\n%s", dry.code, dry.stderr)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".memlint.toml")); !os.IsNotExist(err) {
-		t.Fatal("dry-run must not create .memlint.toml")
+	if _, err := os.Stat(filepath.Join(dir, ".memvet.toml")); !os.IsNotExist(err) {
+		t.Fatal("dry-run must not create .memvet.toml")
 	}
 	if !strings.Contains(dry.stderr, "nothing written") || strings.Contains(dry.stdout, "Enabled") {
 		t.Errorf("report belongs on stderr, config on stdout:\nstdout:\n%s\nstderr:\n%s", dry.stdout, dry.stderr)
@@ -212,7 +212,7 @@ func TestInitDryRun(t *testing.T) {
 	if got := run(t, nil, "init", dir); got.code != 0 {
 		t.Fatal(got.stderr)
 	}
-	written, err := os.ReadFile(filepath.Join(dir, ".memlint.toml"))
+	written, err := os.ReadFile(filepath.Join(dir, ".memvet.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestInitDryRun(t *testing.T) {
 	}
 
 	again := run(t, nil, "init", dir, "--dry-run")
-	after, _ := os.ReadFile(filepath.Join(dir, ".memlint.toml"))
+	after, _ := os.ReadFile(filepath.Join(dir, ".memvet.toml"))
 	if again.code != 0 || string(after) != string(written) || again.stdout != dry.stdout {
 		t.Errorf("dry-run on a configured repo must succeed and leave the file alone (exit %d)", again.code)
 	}

@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 const ruleIDs = "ids"

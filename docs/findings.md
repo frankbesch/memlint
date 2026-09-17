@@ -1,6 +1,6 @@
 # Finding codes
 
-Every memlint finding carries a stable machine code, `<rule>/<kind>`. This
+Every memvet finding carries a stable machine code, `<rule>/<kind>`. This
 page is the code's home. Each entry opens with a plain-English line — what
 happened and what to do — followed by the exact mechanics for readers who
 want them. JSON output links here via `doc_url`; text output prints the code
@@ -10,13 +10,13 @@ Codes are stable: messages may be reworded, codes may not. Additions are
 non-breaking; renaming or removing one bumps the JSON `schema_version`.
 
 Three severities. **RED** fails the run. **YELLOW** is advisory and fails
-only under `--strict`. **INFO** (green) is a receipt for something memlint
+only under `--strict`. **INFO** (green) is a receipt for something memvet
 verified and wants you to see; it never fails the run, and a run with only
 INFO lines still reports clean.
 
 ## unverifiable
 
-**RED** · any rule. memlint was asked to check this file and physically
+**RED** · any rule. memvet was asked to check this file and physically
 could not — usually a permission or disk problem. It reports that instead of
 guessing. Fix the underlying problem, or stop listing the path.
 
@@ -31,7 +31,7 @@ Every rule emits its own spelling (`mirrors/unverifiable`,
 Decide which one is right and copy it over the other.
 
 Comparison is byte-wise; the finding names the first differing byte with its
-line and column, plus both file sizes. memlint never autofixes.
+line and column, plus both file sizes. memvet never autofixes.
 
 ## mirrors/one-sided
 
@@ -53,7 +53,7 @@ can never be compared. Fix the configured paths.
 
 ## mirrors/escape
 
-**RED** · A configured path points outside the repository, where memlint
+**RED** · A configured path points outside the repository, where memvet
 refuses to follow.
 
 The escape can be lexical (`../`, absolute) or through a symlink; every rule
@@ -74,7 +74,7 @@ the first divergent line as was/now.
 
 ## append_only/escape
 
-**RED** · The configured path points outside the repository, where memlint
+**RED** · The configured path points outside the repository, where memvet
 refuses to follow.
 
 ## append_only/no-baseline
@@ -97,7 +97,7 @@ verified. `<src> → <dst> (N lines moved verbatim)`.
 
 Mechanics. The check first strips `header_lines` (default 0) from both the
 baseline and the working copy — the header is the only span that may
-change. If the body no longer begins with its baseline, memlint isolates the
+change. If the body no longer begins with its baseline, memvet isolates the
 cut: the baseline lines after the longest shared prefix and before the
 shortest baseline tail the working copy still continues with. That cut,
 whole lines only, must appear verbatim after the header of another file
@@ -143,7 +143,7 @@ is ambiguous. Remove the extra.
 
 ## blocks/escape
 
-**RED** · The configured path points outside the repository, where memlint
+**RED** · The configured path points outside the repository, where memvet
 refuses to follow.
 
 ## human_brief/agent-commit
@@ -167,7 +167,7 @@ No repository, no commits, or no commit touches this file.
 
 ## human_brief/escape
 
-**RED** · The configured path points outside the repository, where memlint
+**RED** · The configured path points outside the repository, where memvet
 refuses to follow.
 
 ## pointers/dead-ref
@@ -196,7 +196,7 @@ file are two findings; a missing base file stays `pointers/dead-ref` alone.
 
 ## pointers/missing-source
 
-**RED** · A file memlint was told to scan for references is itself missing.
+**RED** · A file memvet was told to scan for references is itself missing.
 
 A literal `files` entry that is gone is an error, not a skip — unlike a
 glob, which reports `pointers/no-match` instead.
@@ -211,7 +211,7 @@ Globs match root-relative paths only, never basenames.
 ## pointers/escape
 
 **RED** · A configured source path points outside the repository, where
-memlint refuses to follow.
+memvet refuses to follow.
 
 ## junk/match
 
@@ -228,7 +228,7 @@ it, or raise the budget on purpose. When `limit` is also set, this is the
 soft tier of two — the early warning, not the gate.
 
 The estimate is one token per four runes, rounded up — an approximation,
-reported as one; memlint does not run a tokenizer.
+reported as one; memvet does not run a tokenizer.
 
 ## tokens/over-limit
 
@@ -283,7 +283,7 @@ files rationale.
 
 ## ids/escape
 
-**RED** · A configured path points outside the repository, where memlint
+**RED** · A configured path points outside the repository, where memvet
 refuses to follow.
 
 ## ids/known-duplicate
@@ -385,10 +385,10 @@ the repo's own; a custom hit is named "custom pattern <regex>".
 
 ## config/inferred
 
-**YELLOW** · `check` found no `.memlint.toml` at the target, so it ran the
-config `memlint init` would have written and is telling you. The message
+**YELLOW** · `check` found no `.memvet.toml` at the target, so it ran the
+config `memvet init` would have written and is telling you. The message
 names the rules that ran, or says that nothing could be inferred. Run
-`memlint init` to keep the config, then declare the invariants you rely on.
+`memvet init` to keep the config, then declare the invariants you rely on.
 
 Inference enables only what the tree shows: index files that exist, junk
 that is present, a flat memory folder. It never guesses a policy. The
@@ -399,12 +399,12 @@ stays a startup error (exit 2). Nothing is written. Since v0.11.
 ## tree/moved
 
 **RED** · `check --expect-tree <fp>` was given a fingerprint, and the tree
-memlint just judged has a different one. The receipt you are holding was
-recorded against a different tree. Re-run `memlint check` on the tree you
+memvet just judged has a different one. The receipt you are holding was
+recorded against a different tree. Re-run `memvet check` on the tree you
 mean to act on and record the new fingerprint.
 
 The fingerprint is the SHA-256 of every visible regular file's path, size,
-and content hash, sorted by path (`memlint fingerprint`, and the `tree …`
+and content hash, sorted by path (`memvet fingerprint`, and the `tree …`
 suffix of every `check` summary). It is content-based, so a clone, a
 checkout, or a touch does not move it; one changed byte, one added or
 removed file, or a config edit does. Visible means what a commit could

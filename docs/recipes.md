@@ -24,10 +24,10 @@ budget = 400
 globs = [".DS_Store", "*.tmp"]
 ```
 
-Result: `memlint: clean (3 rules, 4 files checked, …)`.
+Result: `memvet: clean (3 rules, 4 files checked, …)`.
 
 For a Claude Code repo, add `CLAUDE.md` to `files` and any folder that
-`MEMORY.md` links into to `roots`. `memlint init` does exactly this when it
+`MEMORY.md` links into to `roots`. `memvet init` does exactly this when it
 finds those files.
 
 ## Claude Code auto-memory
@@ -46,7 +46,7 @@ That is also what `check` infers when there is no config, so the one-line
 version needs nothing written:
 
 ```bash
-memlint check ~/.claude/projects/<project-slug>/memory
+memvet check ~/.claude/projects/<project-slug>/memory
 ```
 
 A renamed or deleted note is a RED `pointers/dead-ref` at the index line
@@ -95,7 +95,7 @@ start = "<!-- AGENT:START -->"
 end = "<!-- AGENT:END -->"
 ```
 
-Result: `memlint: clean (2 rules, 2 files checked, …)`.
+Result: `memvet: clean (2 rules, 2 files checked, …)`.
 
 ## A broken repo, for reference
 
@@ -106,15 +106,15 @@ identical to the real run.
 
 ## Before every commit
 
-With the [pre-commit](https://pre-commit.com) framework, memlint builds
+With the [pre-commit](https://pre-commit.com) framework, memvet builds
 itself from this repository at the pinned release and runs `check
 --changed` on the files you are about to commit:
 
 ```yaml
-- repo: https://github.com/frankbesch/memlint
-  rev: v0.11.0
+- repo: https://github.com/frankbesch/memvet
+  rev: v0.12.0
   hooks:
-    - id: memlint
+    - id: memvet
 ```
 
 Set `args: []` to run the full check instead of only changed files.

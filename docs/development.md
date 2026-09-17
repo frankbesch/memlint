@@ -2,11 +2,11 @@
 
 ```bash
 go test ./...
-go build -o ./memlint .
-./memlint check --no-color testdata/fixture-broken   # 10 red, 4 yellow, exit 1
-./memlint check --no-color testdata/fixture-clean    # clean, exit 0
-./memlint check --no-color testdata/fixture-yellow   # yellow only, exit 0
-./memlint check --no-color testdata/fixture-dupids   # 2 red (ids/duplicate), exit 1
+go build -o ./memvet .
+./memvet check --no-color testdata/fixture-broken   # 10 red, 4 yellow, exit 1
+./memvet check --no-color testdata/fixture-clean    # clean, exit 0
+./memvet check --no-color testdata/fixture-yellow   # yellow only, exit 0
+./memvet check --no-color testdata/fixture-dupids   # 2 red (ids/duplicate), exit 1
 ```
 
 [testdata/fixture-broken](../testdata/fixture-broken) carries ten planted RED
@@ -19,7 +19,7 @@ builds the git state around it rather than checking the tree as it sits.
 [testdata/fixture-dupids](../testdata/fixture-dupids) plants exactly two id
 collisions next to a gap and a mid-line mention that must stay silent.
 
-memlint runs against itself. `.memlint.toml` at this repo's root enables only
+memvet runs against itself. `.memvet.toml` at this repo's root enables only
 the rules that genuinely apply here.
 
 Releases are cut by tagging: push a `vX.Y.Z` tag and
@@ -52,7 +52,7 @@ surface"). Unprefixed formats belong in `[secrets] patterns` instead.
 No roadmap items remain open; rule expansion stays frozen (D-143).
 
 Shipped in v0.9: anchor validation in `[pointers]` (`pointers/dead-anchor`,
-reserved since v0.6); the tree fingerprint — `memlint fingerprint`, the
+reserved since v0.6); the tree fingerprint — `memvet fingerprint`, the
 `tree …` receipt in every summary, `--expect-tree`, and `summary.tree`.
 
 Shipped in v0.8: recursive `**` globs in every glob-taking key; `[blocks]`
@@ -68,7 +68,7 @@ in [docs/findings.md](findings.md), linked from text output and as
 `[tokens]`; rotation-aware `[append_only]` with `header_lines`; the `[ids]`
 rule (all v0.7.0).
 
-Shipped from earlier roadmaps: `memlint init` (v0.4.0), base-ref
+Shipped from earlier roadmaps: `memvet init` (v0.4.0), base-ref
 `[append_only]` via `--base` (v0.5.0).
 
 Considered from the agent-cohabitation contract and **not** adopted: no-op

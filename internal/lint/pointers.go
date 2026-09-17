@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/frankbesch/memlint/internal/config"
+	"github.com/frankbesch/memvet/internal/config"
 )
 
 const rulePointers = "pointers"
@@ -116,9 +116,9 @@ func checkableAnchoredRefs(src string, roots []string) []Ref {
 }
 
 // CheckableRefs returns the subset of ExtractRefs whose first path segment is
-// one of roots. That single filter is what separates a reference memlint is
+// one of roots. That single filter is what separates a reference memvet is
 // responsible for from one it must leave alone: an unlisted root means the
-// reference points somewhere memlint was never told about.
+// reference points somewhere memvet was never told about.
 func CheckableRefs(src string, roots []string) []Ref {
 	rootSet := setOf(roots)
 	var out []Ref

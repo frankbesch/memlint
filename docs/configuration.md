@@ -1,6 +1,6 @@
 # Configuration
 
-`.memlint.toml`, at the root you point memlint at. **A section's presence is
+`.memvet.toml`, at the root you point memvet at. **A section's presence is
 what enables its rule.** Omit a section and that rule does not run.
 
 ```toml
@@ -37,13 +37,13 @@ budget = 2000
 files = ["memory/decisions.md", "memory/archive/*.md"]
 ```
 
-memlint rejects any key it does not recognize, along with empty sections,
+memvet rejects any key it does not recognize, along with empty sections,
 absolute paths, paths containing `..`, invalid globs, and duplicate entries.
 A typo in a config is a check that silently never ran, which is the one failure
 mode a checker must not have.
 
 A config with no sections at all is valid. It exits 0 and says
-`memlint: clean (no rules enabled)` — never a bare "clean" that could be
+`memvet: clean (no rules enabled)` — never a bare "clean" that could be
 mistaken for verification.
 
 

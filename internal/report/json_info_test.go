@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/lint"
+	"github.com/frankbesch/memvet/internal/lint"
 )
 
 // The summary gains an additive "info" count; red and yellow are unchanged

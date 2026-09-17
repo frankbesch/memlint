@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frankbesch/memlint/internal/lint"
+	"github.com/frankbesch/memvet/internal/lint"
 )
 
 func TestGitHubAnnotations(t *testing.T) {
@@ -34,7 +34,7 @@ func TestGitHubAnnotations(t *testing.T) {
 		t.Fatalf("want 2 annotations + summary, got %d lines:\n%s", len(lines), b.String())
 	}
 
-	wantRed := "::error file=memory/index.md,line=7,title=memlint pointers/dead-ref::" +
+	wantRed := "::error file=memory/index.md,line=7,title=memvet pointers/dead-ref::" +
 		"dead reference: memory/missing.md does not exist"
 	if lines[0] != wantRed {
 		t.Errorf("RED annotation:\ngot  %q\nwant %q", lines[0], wantRed)
@@ -42,13 +42,13 @@ func TestGitHubAnnotations(t *testing.T) {
 
 	// The YELLOW finding's detail rides along, newline-escaped, and its path is
 	// a glob whose characters must survive property escaping.
-	wantYellow := "::warning file=notes/*.md,title=memlint tokens/no-match::" +
+	wantYellow := "::warning file=notes/*.md,title=memvet tokens/no-match::" +
 		"watch glob matched no files%0Aa stale watch glob is a budget check that silently never runs"
 	if lines[1] != wantYellow {
 		t.Errorf("YELLOW annotation:\ngot  %q\nwant %q", lines[1], wantYellow)
 	}
 
-	if lines[2] != "memlint: 1 red, 1 yellow" {
+	if lines[2] != "memvet: 1 red, 1 yellow" {
 		t.Errorf("summary: got %q", lines[2])
 	}
 }
@@ -58,7 +58,7 @@ func TestGitHubCleanRuns(t *testing.T) {
 	if err := GitHub(&b, lint.Result{RulesRun: 2, FilesChecked: 5}); err != nil {
 		t.Fatal(err)
 	}
-	if got := b.String(); got != "memlint: clean (2 rules, 5 files checked)\n" {
+	if got := b.String(); got != "memvet: clean (2 rules, 5 files checked)\n" {
 		t.Errorf("got %q", got)
 	}
 
@@ -66,7 +66,7 @@ func TestGitHubCleanRuns(t *testing.T) {
 	if err := GitHub(&b, lint.Result{}); err != nil {
 		t.Fatal(err)
 	}
-	if got := b.String(); got != "memlint: clean (no rules enabled)\n" {
+	if got := b.String(); got != "memvet: clean (no rules enabled)\n" {
 		t.Errorf("no-rules run: got %q", got)
 	}
 }
@@ -94,9 +94,9 @@ func TestGitHubInfoIsNotice(t *testing.T) {
 	if err := GitHub(&b, res); err != nil {
 		t.Fatal(err)
 	}
-	want := "::notice file=memory/decisions.md,line=5,title=memlint append_only/rotated::" +
+	want := "::notice file=memory/decisions.md,line=5,title=memvet append_only/rotated::" +
 		"rotated → memory/archive/vol1.md (3 lines moved verbatim)\n" +
-		"memlint: clean (1 rule, 2 files checked)\n"
+		"memvet: clean (1 rule, 2 files checked)\n"
 	if got := b.String(); got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
