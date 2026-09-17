@@ -215,8 +215,9 @@ beside its notes, indexed as `[Title](note.md)` — where no first-segment
 root could ever match. Inline code spans and bare tokens are excluded from
 that pass on purpose: `a.md` in prose is a word, not a claim. `"."` may sit
 beside named roots; each pass is gated by its own rule. `memlint init`
-infers it when `MEMORY.md` sits beside two or more notes and no markdown
-folder exists.
+infers it when `MEMORY.md` sits at the root and no markdown folder exists
+(since v0.11.1 the note count is not a condition; v0.11.0 required two or
+more sibling notes, which left a young or emptied folder unchecked).
 
 Anchored references — `memory/notes.md#section` — split at a single `#`.
 The **base file** must exist (since v0.6; a dead base is one `pointers/dead-ref`

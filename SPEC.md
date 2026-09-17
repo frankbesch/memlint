@@ -837,3 +837,26 @@ G-FBOS CHECK `check --strict ~/Documents/promptkits` EXPECT clean (8 rules,
    line that predates this build; same with the flags after the path.
 G-CI CHECK CI run 34639081021 EXPECT success: test (ubuntu), test (macos),
    action — all green on the first push. Release run 34639549431 green.
+
+# --- v0.11.1: flat-memory inference threshold (ruled 2026-09-16) ---
+
+Defect found by the 2026-09-16 hands-on test of v0.11.0: part 3's init
+condition "beside two or more .md files" meant `memlint check` on a
+one-note auto-memory folder, or on a folder whose only note was deleted,
+inferred nothing and exited 0 with a dead link in MEMORY.md — the exact
+case part 3 exists for, and the opposite of what docs/recipes.md promised.
+Frank ruled a code fix over a wording fix. Change: flatMemory() drops the
+note-count condition; the evidence is MEMORY.md at the root and no
+markdown folder. Finding codes unchanged. The pointers rule with roots
+["."] on a folder with no notes reports each dead link and nothing else.
+
+Gates:
+G1 CHECK MEMORY.md + one note, links to the note and to a missing note,
+   no config EXPECT config/inferred YELLOW then 1 RED pointers/dead-ref,
+   exit 1; a prose `a.md` produces nothing.
+G2 CHECK MEMORY.md alone linking a missing note EXPECT 1 RED, exit 1.
+G3 CHECK init --dry-run on G2 EXPECT Enabled pointers, roots ["."].
+G4 CHECK fixture-broken, fixture-clean, README 60-second block unchanged.
+G5 gofmt/vet/test green.
+Receipt: TestFlatMemoryInferredWithoutSiblingThreshold (G1-G3);
+TestReadmeOutputMatchesExample (G4); `go vet ./... && go test ./...` (G5).

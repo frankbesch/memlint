@@ -206,9 +206,11 @@ func inspect(root string) evidence {
 }
 
 // flatMemory is the evidence for a flat memory folder: MEMORY.md at the
-// root, two or more sibling notes, and no markdown folder to name as a root.
+// root and no markdown folder to name as a root. The note count is not a
+// condition (v0.11.1): a folder whose only note was deleted is the case the
+// rule exists for, and MEMORY.md alone with a dead link must still be RED.
 func (ev evidence) flatMemory() bool {
-	if len(ev.mdRoots) > 0 || ev.flatNotes < 2 {
+	if len(ev.mdRoots) > 0 {
 		return false
 	}
 	for _, f := range ev.indexFiles {

@@ -155,3 +155,26 @@ func TestActionAndPreCommitFilesExist(t *testing.T) {
 		}
 	}
 }
+
+// v0.11.1: a flat memory folder is inferred from MEMORY.md alone. A one-note
+// folder (the docs/recipes.md one-liner on a young auto-memory folder) and a
+// folder whose only note was deleted both run pointers and report the dead link.
+func TestFlatMemoryInferredWithoutSiblingThreshold(t *testing.T) {
+	one := tree(t, map[string]string{
+		"MEMORY.md": "# M\n- [Keep](keep.md)\n- [Gone](gone.md)\nsee a.md for context\n",
+		"keep.md":   "keep\n",
+	})
+	got := run(t, nil, "check", "--no-color", one)
+	if got.code != 1 || !strings.Contains(got.stdout, "ran the inferred config (pointers)") || !strings.Contains(got.stdout, "gone.md does not exist") || strings.Contains(got.stdout, "a.md") {
+		t.Errorf("one note: exit %d\n%s", got.code, got.stdout)
+	}
+	alone := tree(t, map[string]string{"MEMORY.md": "# M\n- [Gone](gone.md)\n"})
+	got = run(t, nil, "check", "--no-color", alone)
+	if got.code != 1 || !strings.Contains(got.stdout, "gone.md does not exist") {
+		t.Errorf("MEMORY.md alone: exit %d\n%s", got.code, got.stdout)
+	}
+	got = run(t, nil, "init", "--dry-run", alone)
+	if got.code != 0 || !strings.Contains(got.stdout, "roots = [\".\"]") {
+		t.Errorf("init on MEMORY.md alone: exit %d\n%s", got.code, got.stdout)
+	}
+}

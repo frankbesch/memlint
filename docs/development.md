@@ -30,6 +30,11 @@ whole pipeline locally without publishing anything.
 
 ## Roadmap and history
 
+Shipped in v0.11.1: flat-memory inference no longer needs two sibling
+notes; `MEMORY.md` at the root with no markdown folder is enough, so the
+docs/recipes.md one-liner is true on a one-note or emptied auto-memory
+folder. Same finding codes, no new rule.
+
 Shipped in v0.11: `check` without a config runs the inferred config and
 says so (`config/inferred`); wider index discovery for `init`; the
 `[pointers]` sibling root `"."` for flat memory folders; `action.yml` and
