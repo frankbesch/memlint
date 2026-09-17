@@ -28,6 +28,12 @@ goreleaser builds, checksums, and publishes binaries for the platforms CI
 tests. `goreleaser release --snapshot --clean --skip=publish` rehearses the
 whole pipeline locally without publishing anything.
 
+The cask hook uses GoReleaser's `install_steps` (v2.19 or later). release.yml
+runs a preflight step that fails a tag with a named reason when the resolved
+GoReleaser is older than that, so a release cannot silently rewrite the tap
+cask with Homebrew's deprecated `postflight` stanza. Until v2.19 ships, a
+local `goreleaser check` on v2.18 rejects the config; that is expected.
+
 ## Roadmap and history
 
 Shipped in v0.11.1: flat-memory inference no longer needs two sibling

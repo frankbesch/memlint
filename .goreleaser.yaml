@@ -52,24 +52,17 @@ homebrew_casks:
     # The binaries are not notarized, so strip the quarantine bit Gatekeeper
     # would otherwise use to block the first run.
     #
-    # Homebrew 7.0 (2026-09-13) deprecated the `postflight` stanza this
-    # `install` hook renders; it warns on every brew command until 2027-12-11,
-    # then fails. GoReleaser v2.19 adds `install_steps` (goreleaser/goreleaser#6870,
-    # PR #6873, unreleased on 2026-09-17). release.yml floats on `~> v2`, so
-    # once v2.19 is out, replace the `install:` block below with:
-    #
-    #     install_steps: |
-    #       on_macos do
-    #         run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/memvet"]
-    #       end
-    #
-    # Until then the tap's Casks/memvet.rb carries a hand-migrated
-    # `postflight_steps` block that the next tag overwrites.
+    # `install_steps` is Homebrew's declarative steps DSL (Cask Cookbook), the
+    # replacement for the `postflight` block Homebrew 7.0 deprecated. GoReleaser
+    # renders it from v2.19 (goreleaser/goreleaser#6870, PR #6873); earlier
+    # versions reject the key, and release.yml's preflight step turns that into
+    # a named failure before anything publishes. Swapped 2026-09-17 while v2.19
+    # was still unreleased (Frank's ruling); tags wait for v2.19.
     hooks:
       post:
-        install: |
-          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/memvet"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/memvet"]
           end
 
 release:
