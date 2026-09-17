@@ -3,7 +3,7 @@
 # toolchain and nothing else. Usage in .pre-commit-config.yaml:
 #
 #   - repo: https://github.com/frankbesch/memlint
-#     rev: v0.11.0
+#     rev: v0.11.1
 #     hooks:
 #       - id: memlint
 #

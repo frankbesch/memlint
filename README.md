@@ -132,7 +132,7 @@ runs `check --format github`:
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0
-- uses: frankbesch/memlint@v0.11.0
+- uses: frankbesch/memlint@v0.11.1
   with:
     strict: true
     base: ${{ github.event.pull_request.base.sha }}
