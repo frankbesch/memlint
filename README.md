@@ -27,6 +27,8 @@ Nothing fails. The agent just starts working from something that is no longer
 true. memvet turns each of those into a RED finding with a file, a line, and
 a stable code.
 
+![What gets checked against what: declared invariants, the memory repo, and git history go into memvet check; RED and YELLOW findings, a tree fingerprint, and the human edit come out. No arrow returns to the repo.](docs/diagrams/positioning.svg)
+
 ## 60-second example
 
 [examples/broken](examples/broken) is a three-file memory repo with two
@@ -156,6 +158,13 @@ A complete pull-request workflow using `go install` instead is in
 `--base` matters for `append_only`: a fresh checkout equals its own HEAD, so
 without a base the log has nothing to be compared against. `fetch-depth: 0`
 makes that base reachable.
+
+A push gate built on `check` and `fingerprint` looks like this: a gate script
+runs the checks and writes a one-shot marker naming the tree it judged; the
+push hook recomputes the fingerprint and allows one plain push only while the
+tree still matches. Anything else asks a human.
+
+![Gating a push on memvet: the gate script runs check --strict and fingerprint, writes a marker; the push hook rereads the marker, recomputes the fingerprint, and allows one plain push on a match. Stale or moved falls back to asking a human.](docs/diagrams/push-gate.svg)
 
 ## Tree receipts
 
