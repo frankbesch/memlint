@@ -868,7 +868,7 @@ nor `base` was set. Now `${args[@]+"${args[@]}"}`. Receipt: the two
 expansions run on /bin/bash 3.2.57 with an empty and a one-element array.
 Ships with the next tag; @v0.11.1 is unchanged.
 
-# --- v0.12.0: rename memlint to memvet (ruled 2026-09-17, D-### at wrap) ---
+# --- v0.12.0: rename memlint to memvet (ruled 2026-09-17, D-164) ---
 
 Why: D-144 §6 fixed the positioning as declared invariants with no fix mode
 at the contract level, which is `go vet`'s posture, not a linter's. The
